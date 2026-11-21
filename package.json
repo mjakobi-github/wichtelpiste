@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "devDependencies": {
+    "@vite-pwa/assets-generator": "^2.0.0",
     "jsdom": "^29.1.1",
     "typescript": "^5.7.2",
     "vite": "^6.0.7",

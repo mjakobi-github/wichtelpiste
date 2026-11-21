@@ -1,224 +1,147 @@
-# Technische Dokumentation – „Schlittenfahrer"
+# Technik – Schlittenfahrer v1
 
-*Stand: 21.11.2026 · Version 0.0.1*
+Stack: **TypeScript (strict) · Vite 6 · PixiJS 8 · pixi-filters (Bloom) · Vitest ·
+vite-plugin-pwa**. Keine Server, keine Assets außer Inline-SVG und einer
+selbst gehosteten Schrift (Fredoka).
 
----
-
-## 1. Überblick
-
-| | |
-|---|---|
-| Stack | **TypeScript 5.7** (strict, `noUnusedLocals`) · **Vite 6** · **Canvas 2D** · kein Framework · keine Laufzeit-Abhängigkeiten |
-| Renderer | Canvas 2D, dpr-aware (`resize(dpr)`, capped bei 2), Kamera in Weltkoordinaten |
-| Physik | Eigenbau: AABB (Fuß-Modus), Punktmasse + Segment-Kollision (Schlitten) |
-| Audio | Prozedural per WebAudio (kein Asset, kein Netzwerk) |
-| Persistenz | `localStorage["schlittenfahrer.stars"]` → `number[]` (Sterne je Level) |
-
-Klassischer Aufbau ohne Engine: wenige hundert Zeilen pro Modul, klar getrennt in
-`engine/` (plattformunabhängige Infrastruktur), `game/` (Spiellogik & Daten) und
-`render/` (Ausgabe).
-
----
-
-## 2. Modulübersicht
+## 1. Architektur
 
 ```
 src/
-├── main.ts                Einstieg: Canvas holen, Game erzeugen, Loop starten
-├── styles.css             Canvas, Touch-Buttons, Werkzeugleiste, Overlays, Menü
-├── engine/
-│   ├── loop.ts            Fixed-Timestep: Physik mit 1/60 s + Accumulator,
-│   │                      MAX_DT = 0,1 s (Bremse, falls rAF lange pausierte), Render via rAF
-│   ├── input.ts           Tastatur + virtuelle Touch-Buttons → PlayerInput
-│   │                      {move, jumpHeld}; Jump-Buffer 0,12 s; onKeyPress-Hook
-│   ├── camera.ts          Follow-Cam mit Lookahead + Weltränder-Klemmung
-│   ├── drawing.ts         Pointer-Events → WELT-Segmente (erster Zeiger gewinnt,
-│   │                      min. 3 px Abstand pro Teilstück), canDraw-Gate
-│   └── audio.ts           WebAudio-Synth: gift(streak)/checkpoint/crash/jump/
-│                          launch/refuse/win; mount() entriegelt auf erste Geste
-├── game/
-│   ├── game.ts            Zustandsautomat + sämtliche Spielregeln (siehe §4)
-│   ├── types.ts           Datenmodell (siehe §3)
-│   ├── levels.ts          LEVELS + platformSegments() (Plattform-Kanten → Segmente)
-│   ├── player.ts          Fuß-Physik (AABB), Tuning: gravityUp 1250 / gravityDown
-│   │                      2200 / jumpVelocity −720 (≈ 207 px Sprunghöhe)
-│   ├── sled.ts            Schlitten-Physik (siehe §5), closestPointOnSegment-Export
-│   └── world.ts           stationZone() (Aufstiegs-Rechteck um eine Station)
-└── render/
-    └── renderer.ts        Sky/Plattformen/Linien/Geschenke/Schornstein/HUD/
-                           Minimap/Notice-Toasts + Boost-Linien mit Chevrons
+  sim/      Spielregeln ohne DOM: Simulation, Spieler, Schlitten, Tinte, Elemente, Wertung
+  engine/   Takt (fester Schritt 120 Hz), Eingabe, Gesten, WebAudio-Synth
+  view/     Darstellung mit Pixi: Kamera, Hintergrund, Welt, Figuren, Effekte, Qualität
+  ui/       HTML/CSS über dem Canvas: HUD, Werkzeugleiste, Bildschirme, Hinweise, Icons
+  app/      Verdrahtung (App), Bildschirm-Fluss, Fortschritt (localStorage)
+  levels/   Level-JSON (Format v1), Schema-Prüfung, Lösungen + Lösbarkeitstest
+  assets/   SVG-Teile (Elfe, Schlitten, Objekte)
 ```
 
----
+**Grundsatz:** `sim/` kennt weder DOM noch Pixi. Eingaben kommen als
+`FootInput` je Tick und als `Command`s (zeichnen, LOS, …). Heraus kommen
+`SimEvent`s je Tick (Sprung, Geschenk, Crash, Sieg …), auf die Darstellung,
+HUD und Audio reagieren. Dadurch lassen sich ganze Level-Durchläufe in Vitest
+simulieren.
 
-## 3. Datenmodell (`src/game/types.ts`)
+### Ablauf eines Bildes
 
-```ts
-Vec2 { x, y }                       // Weltpixel
-Rect { x, y, w, h }                 // AABB
-Platform = Rect
-Segment { ax, ay, bx, by, boost?, area? }  // gezeichnete Linie; area = Stations-Index
-SledStation { pos }
-DismountZone = Rect                 // Automatik-Abstieg
-Icicle { x, y, h }                  // Eiszapfen, Spitze hoch, y = Basis
-CandyCane { x, y, h }               // Zuckerstange (Haken = obere 24 px)
-InkBudget { ink, boost }            // number | 'unlimited', Einheit: Weltpixel Länge
-LevelData {
-  id, name, worldW, worldH, spawn,
-  platforms, stations, dismounts,
-  gifts, checkpoints, icicles, candies,
-  chimney | null,
-  areas: InkBudget[]                // Index = Stations-Index (kein Budget global!)
-}
-```
+`Loop` ruft `App.update(dt)` mit festem Schritt auf
+(`Simulation.step` → Ereignisse → Toasts/Sounds) und danach `App.render(alpha)`
+(`GameView.render` interpoliert zwischen Schritten, HUD, Hinweise).
 
-**Level-Bibliothek** (`levels.ts`):
+## 2. Simulation (`src/sim`)
 
-| Level | Bereiche (Tinte/🚀) | Besonderheit |
-|---|---|---|
-| 1 · Erste Schlucht | 1500 / 350 | Tutorial, große Kluft |
-| 2 · Wellen-Parcours | 1400/250 + 1000/200 | 2 Stationen, schwebende Stufen |
-| 3 · Nachtexpress | 1800/300 + 1300/250 | 2 Fahrten, mehr Hindernisse |
-
-`platformSegments(level)` baut aus jeder Plattform 4 Kantensegmente — der
-Schlitten reitet dadurch auf Plattformen wie auf gezeichneten Linien (eine
-einzige Kollisionsroutine für beides).
-
----
-
-## 4. Spielzustand & Regeln (`game.ts`)
-
-### Zustandsautomat
-
-```
-State:   menu ⇄ play ⇄ won          (Esc/☰ → Menü, Level-Button → play)
-Mode:    foot ⇄ sled                (Aufsitzen an Station / Dis­mount)
-SledPhase: plan ⇄ ride              (Physik pausiert in der Planungsphase)
-Tool:    draw | boost | eraser | pan
-```
-
-### Bereiche (Areas) – der zentrale Fairness-Mechanismus
-
-- Jede Station = ein Bereich mit eigenem `inkByArea[]`/`boostByArea[]`.
-- Beim Aufsitzen (`board(areaIdx)`) wird `activeArea` gesetzt.
-- **Zeichnen** verbraucht aus dem Pool des aktiven Bereichs (boost-Linien aus
-  dem 🚀-Pool), **Radierer/Löschen** erstatten exakt dorthin.
-- Invariante pro Pool: `gezeichnete Länge + übrig = Budget`.
-- Radierer/Mülleimer wirken **nur auf Segmente des aktiven Bereichs**; Linien
-  anderer Bereiche bleiben als fahrbarer Untergrund, sind aber immun.
-
-### Reset- & Checkpoint-Philosophie
-
-| Ereignis | Wirkung |
+| Datei | Inhalt |
 |---|---|
-| `R`, Sturz unter die Welt | nur **Position** → `respawnPos`; Zeichnung, Tinte, Geschenke bleiben |
-| Flagg-Checkpoint berührt | `respawnPos` = Flaggen-Position |
-| Schlitten-Ankunft (Dismount-Zone oder Auto-Aussteigen) | `respawnPos` = Ankunftsposition + Toast „Angekommen" |
-| `❄️`/`🍬`-Berührung | **kein Reset mehr**: solide Hürde (Fuß blockt, Schlitten verliert Schwung) |
-| Festkleben (< 30 px/s für 1,2 s) | automatisches Aussteigen (Anti-Softlock) |
+| `simulation.ts` | Zustand eines Levels: Modus Fuß/Schlitten, Phase plan/ride, Abschnitte, Geschenke, Checkpoints, Crash-Regeln (fall, hazard, stuck, stall, missed), Lieferung, Wertung |
+| `player.ts` | Plattformer: Beschleunigung, Coyote-Time, Sprungpuffer, Sprungabbruch, Schwebe am Scheitel, Eis (träge, Schwung bleibt beim Absprung) |
+| `sled.ts` | Zwei-Punkt-Körper mit positionsbasierter Physik, Unterschritte gegen Tunneln, Speedtinte schiebt in Zeichenrichtung |
+| `ink.ts` | Striche je Abschnitt, Budget (Piste/Speedtinte), Vereinfachung, Radieren, Verbotszonen |
+| `elements.ts` | Kollisionsformen der Elemente, Beweger-Bahnen (Pendel, Kreis, Linie), Feder-Impuls |
+| `scoring.ts` | Sterne und Level-Fingerabdruck (Hash ohne Hinweise) für Rekorde |
 
-### Geschenk-Snapshot & Fahrt-Restart
-```
-launch():  giftSnapshot = [...giftTaken]
-Crash/R während ride:  giftTaken = [...giftSnapshot]
-```
-→ Geschenke der gescheiterten Fahrt erscheinen wieder und zählen nicht;
-  zu Fuß gesammelte bleiben unangetastet. Nur eine **erfolgreiche** Ankunft
-  belässt die Beute.
+Regeln, die man kennen sollte:
 
-### Sieg
+- Abschnitt *i* muss in `dismounts[i]` landen. Ohne Eintrag ist der
+  Schornstein das Ziel. Wer mehr als 150 px über die Landezone hinausfährt,
+  verfehlt sie (`missed`).
+- Crash während der Fahrt: Der Schlitten startet neu an der Station. Linien und
+  Tinte bleiben, die Geschenke dieser Fahrt erscheinen wieder.
+- Bewegte Gefahren laufen auf einer eigenen Uhr, die bei LOS auf 0 springt.
+  Timing ist dadurch planbar und deterministisch.
+- Der Schornstein nimmt erst ab einem Geschenk an.
 
-`checkChimneyDelivery` (Zone um Schornstein): ab 1 Geschenk → Sterne wie in
-der Spielanleitung; Won-Overlay, `saveStars()` (Bestwert je Level).
+## 3. Levelformat v1 (`src/levels/*.json`)
 
----
+Typen in `src/sim/types.ts`, Prüfung in `src/levels/schema.ts` (mit
+verständlichen Fehlermeldungen). Koordinaten sind Weltpixel, y zeigt nach unten.
 
-## 5. Schlitten-Physik (`sled.ts`)
-
-```
-SLED_TUNING = {
-  radius: 12,                 // Kollisionsradius (komfortabler Kurvenführer)
-  gravity: 2000,
-  maxSpeed: 2200,             // Basis-Cap
-  boostMaxSpeed: 3200,        // 🚀 darf überschießen
-  surfaceFriction: 0.9985,    // Tempo-Verlust pro Bodenkontakt-Substep
-  restitution: 0,             // kein Abpraller (reserviert für Federn)
-  boostAccel: 2600,           // Schub pro Sekunde KONTAKT entlang der Linie
-}
-```
-
-- **Substeps:** ≤ ~6 Weltpixel pro Subschritt (max. 8); verhindert Tunneling
-  auch bei Boost-Tempo.
-- **Überschuss-Tempo** über `maxSpeed` klingt sanft ab (× 0,995/Substep) –
-  Boost fühlt sich wie ein Kick an, ohne dass der Rest-Level unkontrollierbar wird.
-- **Kollision:** nächstliegender Punkt auf Segment, inelastisch (restitution 0),
-  Normalkorrektur + leichte Reibung.
-- `fell` → Sturz unter `world.h + 240` bzw. ±300 seitlich.
-
----
-
-## 6. Rendering (`renderer.ts`)
-
-- `baseScale = max(h/560, w/1100)` → gleiche Weltgröße auf Hand & Desktop;
-  `scale = baseScale × zoom`; der Zoom wird in `game.ts` exponentiell auf das
-  Ziel geglättet (Rate 4/s) und liegt im Schlitten bei 0,5 (Fuß: 1).
-- Linien: weiße Piste vs. rote Boost-Linien mit Chevrons (Pfeile zeigen die
-  Schubrichtung a → b).
-- HUD: Tinte + Speedtinte (Balken blinken unter 20 %), 🎁-Zähler,
-  Level-Label inkl. „Bereich i/n", Modus-Hinweiszeile.
-- Minimap: Welt-Downsampling mit Plattformen, Geschenke, Checkpoints,
-  Eiszapfen, Zuckerstangen (Marker), Schornstein.
-- Off-Screen-Zielpfeil Richtung Schornstein bei Ziel ~Distanz.
-
----
-
-## 7. Eingabe & Werkzeuge
-
-| Quelle | Kanal |
+| Feld | Bedeutung |
 |---|---|
-| Tastatur | `ArrowLeft/Right, A/D, Space/W/ArrowUp` (Foot), `Z/B/E/P` (Tools), `Space`/Launch-Button, `R`, `Backspace`, `Esc` |
-| Touch | D-Pad + Jump-Button (quasi `Input`-virtuelle Keys), Tool-Leiste, LOS-Button |
-| Zeichnen | `DrawingInput` (Pointer-Events → Welt-Segmente; `canDraw()` schließt Foot-Modus/ride-Phase aus) |
-| Radieren | eigener Pointer-Handler (Radius 18 Welt-px, refund) |
-| Verschieben | eigener Pointer-Handler (nur plan-Phase + Tool pan, Clamp an Weltgrenzen) |
+| `worldW`, `worldH`, `spawn` | Weltgröße, Startpunkt |
+| `platforms[]` | Rechtecke; `ice: true` = rutschig. Ab 50 px Höhe als Haus gezeichnet, sonst als Balken |
+| `stations[]`, `areas[]` | Je Station ein Abschnitt mit `{ ink, boost }` (Zahl oder `"unlimited"`) |
+| `dismounts[]` | Landezone je Abschnitt (höchstens so viele wie Abschnitte) |
+| `gifts[]`, `checkpoints[]`, `chimney` | Punkte (Checkpoint/Schornstein: Basis am Boden) |
+| `icicles[]`, `candies[]` | Harmlose, feste Hindernisse `{ x, y, h }` |
+| `hazards[]` | `{ kind: 'icicle-hanging' \| 'tinsel', rect }`, tödlich |
+| `movers[]` | `{ kind: 'bell' \| 'crow', radius, path }`, Bahn `pendulum`/`circle`/`line` |
+| `springs[]` | `{ pos, angle (Grad, 0 = hoch), power }` |
+| `noDraw[]` | Zeichenverbot-Zonen |
+| `theme` | `{ seed, auroraHue }`: Landschaft und Polarlicht-Farbe |
+| `hints[]` | `{ at, text, icon }`: Einführungs-Hinweise (move, jump, station, draw, launch, chimney) |
 
-Pan umgeht die Kamera-Follow-Logik: In der Planungsphase wird die Kamera nicht
-aktualisiert (der Schlitten steht ja), so ist freies Durchschwenken möglich.
+Levels werden über `import.meta.glob` geladen und nach Dateinamen sortiert.
 
----
+### Lösbarkeit
 
-## 8. Build & Deployment
+Zu jedem Level gehört `src/levels/solutions/<id>.json`
+(`{ areas: [{ strokes: [{ boost, pts: [[x, y], …] }] }] }`).
+`solvable.test.ts` steigt mit `boardForTest` an jeder Station ein, zeichnet
+die Lösung, fährt los und verlangt: Ankunft in der Landezone (bzw. Sieg am
+Schornstein), Budget eingehalten, keine Verbotszone. Lösungen lassen sich im
+Spiel mit `?debug` zeichnen und mit `copy(__exportStrokes())` exportieren.
 
-```bash
-npm run dev          # Vite dev server (HMR), http://localhost:5173
-npm run typecheck    # tsc --noEmit, strict
-npm run build        # → dist/            (GitHub Pages / beliebiger Webspace)
-npm run build:file   # → dist-file/      (vite-plugin-singlefile: 1 HTML, ~47 kB)
+## 4. Darstellung (`src/view`)
+
+Ebenen von hinten nach vorn:
+
+```
+Hintergrund (Backdrop, Parallaxe in virtuellen Einheiten, Höhe 540)
+  Himmel · Sterne + Sternschnuppe · Polarlicht · Mond · 2 Bergketten · Wald mit Häusern
+Welt (Kamera)            Dächer/Häuser, Objekte, Gefahren
+Leuchtebene (Kamera)     Fensterschein, Lichterketten, Piste, Glanz, Partikel  ← nur hier Bloom
+Figuren (Kamera)         Schlitten, Elfe, ?debug-Rahmen
+Vordergrund-Schnee, Vignette, Geschenk-Flug zum HUD
 ```
 
-- **GitHub Pages (geplant, Tag 7):** `dist/`-Inhalt auf `gh-pages`
-  pushen; HTTPS-URL ist zugleich PWA-Basis für iOS-Installation.
-- **Ein-Datei-Variante:** `dist-file/index.html` per Mail/Messenger
-  verschicken – öffnet offline in jedem Desktop-Browser.
-- Empfohlenes Deployment-Script: `npm run build && npx gh-pages -d dist`
-  (oder GitHub-Action auf push → `main`).
+- **SVG-Teile** werden einmal mit `GraphicsContext().svg()` geparst und geteilt
+  (`actors/svg.ts`). Elfe und Schlitten bestehen aus einzelnen Teilen und sind
+  animiert (Laufen, Mütze, Stauchen, Neigen).
+- **Prozedurales:** Berge, Wald, Häuser, Fenster und Lichterketten entstehen aus
+  dem Level-Seed. Texturen werden auf Canvas vorgerendert und in `TilingSprite`s
+  verwendet.
+- **Partikel:** ein Pool von 700 in einem `ParticleContainer` (Funken,
+  Schneestaub, Funkenregen, Konfetti).
+- **Kamera:** über den Mittelpunkt, weiches Folgen, Zoom 1 zu Fuß, 0,55 bei
+  der Fahrt, beim Planen 0,35–2,5 frei wählbar. Erschütterung (`fx/shake.ts`)
+  bei Crash und Feder.
+- **Qualität:** `FpsMonitor` misst in 3-s-Fenstern und stuft unter 50 fps
+  ab (high → medium → low: Auflösung, Bloom, Partikelmenge), nie wieder hoch.
+  `?q=` erzwingt eine Stufe.
 
-## 9. Tests & Repo-Hygiene
+## 5. Oberfläche (`src/ui`, `src/app`)
 
-- `npm run typecheck` (strict) als Mindest-Gate vor jedem Commit.
-- Manueller Smoke-Test je Feature: beide Modi, alle 3 Level, Absturz-Fall,
-  Reset-Invarianten (Tinten-Budget, Geschenke), Menü-Kreislauf.
-- *Bekanntes Formatierungs-Risiko beim Generieren langer Codeblöcke:* nach
-  dem Schreiben `grep -rnP '[\x{4E00}-\x{9FFF}\x{0400}-\x{04FF}]' src/` laufen
-  (fremdsprachige Müll-Tokens in Kommentaren), vor dem Commit bereinigen.
+- HTML/CSS über dem Canvas, dunkles Glas, Schrift Fredoka, eigene Inline-SVG-Icons
+  (`ui/icons.ts`). Touch-Ziele ≥ 48 px, Abstände mit `safe-area-inset`.
+- Bildschirm-Fluss als reine Funktion `nextScreen(screen, action)` in
+  `app/flow.ts`: title → levels → play ⇄ pause → won.
+- Titel und Levelauswahl zeigen nur die Kulisse (`GameView.showScenery`).
+- Hochformat auf Touch-Geräten: Hinweis „Bitte Handy drehen“, das Spiel pausiert.
+- Hinweise: `activeHint()` wählt nach Ort und Zustand (zeichnen erst, wenn noch
+  nichts gezeichnet ist; LOS erst mit Linie; während der Fahrt nie).
 
-## 10. Bekannte Grenzen / TODO (Stand v0.0.1)
+## 6. Audio (`src/engine/audio.ts`)
 
-- PWA (Manifest, Service-Worker, Icons) fehlt – Tag 6.
-- Kein Level-Editor; Levels sind handgeschriebene `LevelData`-Literale
-  (`levels.ts`). JSON-Format wäre Drop-in (Kap. 6 des Konzepts).
-- `renderer.ts` kennt teilweise feste Werte (z. B. Schornstein-Zone 44×64),
-  die parallel auch in `game.ts` definiert sind — bei Änderungen beide Dateien
-  anfassen (bewusst gedupliziert, um Import-Zyklen zu vermeiden).
-- Audio wird erst nach erster Nutzer-Geste entriegelt (`audio.mount()` –
-  Browser-/Safari-Policy), davor verlieren frühe Effekte etwas Füllung.
+WebAudio-Synth ohne Dateien. Glöckchen entstehen aus unharmonischen
+Sinus-Teiltönen. Alles läuft über einen Master-Gain, so wirkt Stummschalten
+sofort. Die Einstellung liegt in `localStorage['schlittenfahrer.muted']`.
+Ist die Seite unsichtbar, wird der AudioContext angehalten.
+
+## 7. Build, PWA, Deployment
+
+- `npm run build` → `dist/`: PWA über `vite-plugin-pwa` (`autoUpdate`,
+  `clientsClaim`, Workbox legt alles vorab in den Cache, damit es nach dem
+  ersten Besuch offline läuft). Icons erzeugt `@vite-pwa/assets-generator` aus
+  `public/icon.svg` (`pwa-assets.config.ts`). Größe < 1 MB.
+- `npm run build:file` → `dist-file/index.html`: alles in einer Datei, ohne PWA,
+  startet per `file://`.
+- `.github/workflows/deploy.yml`: Push auf `main` → `npm ci`, `npm test`,
+  `npm run build` → GitHub Pages.
+
+## 8. Tests
+
+`npm test` (Vitest, jsdom). Abgedeckt sind Geometrie, Spieler, Schlitten,
+Tinte, Elemente, Simulation (Ereignisse, Crash-Regeln, Ersatzplanung),
+Wertung, Fortschritt, Takt, Gesten, Qualitätsstufen, Parallaxe, Erschütterung,
+Bildschirm-Fluss, Hinweise, Level-Schema und die Lösbarkeit aller Levels.
