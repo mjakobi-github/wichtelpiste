@@ -27,7 +27,7 @@ export const PALETTE: readonly PaletteEntry[] = [
   { kind: 'hint', label: 'Hinweis' },
 ];
 
-export type TopAction = 'back' | 'undo' | 'redo' | 'grid' | 'pan' | 'sketch' | 'jumps' | 'test' | 'save' | 'export' | 'import' | 'level';
+export type TopAction = 'mode' | 'back' | 'undo' | 'redo' | 'grid' | 'pan' | 'sketch' | 'jumps' | 'test' | 'save' | 'export' | 'import' | 'level';
 
 export interface UiHandlers {
   top(a: TopAction): void;
@@ -93,6 +93,7 @@ export class EditorUi {
     tb('save', `${icon('save')} Ins Spiel speichern`, 'Level + Lösung nach src/levels schreiben (Strg+S)');
     tb('export', icon('download'), 'Als Datei exportieren');
     tb('import', icon('upload'), 'Datei importieren');
+    tb('mode', 'Einfach', 'Einfach/Profi umschalten');
     tb('level', `${icon('settings')} Level`, 'Profi: Name, Weltgröße, Tinte, Polarlicht');
 
     const pal = el('div', 'ed-palette', this.root);
@@ -122,7 +123,11 @@ export class EditorUi {
     this.root.classList.toggle('hidden', !v);
   }
 
-  setTop(state: { canUndo: boolean; canRedo: boolean; grid: boolean; pan: boolean; canSave: boolean; levelOpen: boolean; testable: boolean; sketch: boolean; jumps: boolean }): void {
+  setTop(state: { canUndo: boolean; canRedo: boolean; grid: boolean; pan: boolean; canSave: boolean; levelOpen: boolean; testable: boolean; sketch: boolean; jumps: boolean; pro: boolean }): void {
+    const m = this.topBtns.get('mode')!;
+    m.textContent = state.pro ? 'Profi' : 'Einfach';
+    m.classList.toggle('on', state.pro);
+    this.topBtns.get('level')!.classList.toggle('hidden', !state.pro);
     this.topBtns.get('sketch')!.classList.toggle('on', state.sketch);
     this.topBtns.get('jumps')!.classList.toggle('on', state.jumps);
     this.topBtns.get('undo')!.disabled = !state.canUndo;
@@ -142,9 +147,12 @@ export class EditorUi {
     this.fromSel.value = from === null ? '' : String(from);
   }
 
-  setPalette(active: number | null): void {
+  setPalette(active: number | null, visible: ReadonlySet<number>): void {
     this.selectBtn.classList.toggle('on', active === null);
-    this.palBtns.forEach((b, i) => b.classList.toggle('on', i === active));
+    this.palBtns.forEach((b, i) => {
+      b.classList.toggle('on', i === active);
+      b.classList.toggle('hidden', !visible.has(i));
+    });
   }
 
   /** Eigenschaften oder Profi-Felder rechts. */

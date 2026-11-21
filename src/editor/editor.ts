@@ -22,6 +22,7 @@ import { EditorUi, PALETTE, type TopAction } from './panels';
 import { RenderGate } from './renderGate';
 import { Prefs } from './prefs';
 import { reachFrom } from './jumpReach';
+import { autoInkAllowed, fieldsForMode, friendlyIssue, paletteFor } from './modes';
 
 export interface EditorHost {
   view: GameView;
@@ -64,6 +65,8 @@ export class Editor {
   /** Zeichnen nur bei Änderungen (Leerlauf: keine Bilder). */
   private readonly gate = new RenderGate();
   private readonly prefs: Prefs;
+  /** Tinte von Hand gesetzt (Profi) → keine automatische Anpassung mehr. */
+  private inkTouched = false;
   private lastBackdrop = '';
   private checks: SolutionCheck | null = null;
   private checkTimer = 0;
@@ -300,6 +303,7 @@ export class Editor {
 
   private field(key: string, value: Field['value'], level: boolean): void {
     if (level) {
+      if (/^(ink|boost)/.test(key)) this.inkTouched = true;
       this.setLevel(applyLevelField(this.doc.level, key, value), true);
       if (key === 'id' && this.doc.level.id !== value) this.host.toast('ID: nur a–z, 0–9 und -');
       return;
@@ -363,7 +367,16 @@ export class Editor {
     const n = this.state.mergeRecording(rec);
     if (n > 0) {
       this.syncFromState();
-      this.host.toast(n === 1 ? 'Lösung für einen Abschnitt gemerkt' : `Lösung für ${n} Abschnitte gemerkt`, 2000);
+      if (autoInkAllowed(this.prefs.get().mode, this.inkTouched)) {
+        // Einfach-Modus: Tinte passt sich der geschafften Fahrt an (die Lösung bleibt gültig).
+        const c = checkSolution(this.doc.level, this.doc.solution);
+        const next = suggestBudgets(this.doc.level, c.areas);
+        const areas = this.doc.level.areas.map((a, i) => (c.areas[i]?.ok ? next[i] : a));
+        this.setLevel({ ...this.doc.level, areas }, true);
+        this.host.toast('Geschafft! Tinte angepasst', 2000);
+      } else {
+        this.host.toast(n === 1 ? 'Lösung für einen Abschnitt gemerkt' : `Lösung für ${n} Abschnitte gemerkt`, 2000);
+      }
     }
     this.scheduleCheck();
   }
@@ -436,6 +449,15 @@ export class Editor {
         this.refreshUi();
         break;
       }
+      case 'mode': {
+        const mode = this.prefs.get().mode === 'pro' ? 'simple' : 'pro';
+        this.prefs.set({ mode });
+        if (mode === 'simple') this.levelPanel = false;
+        if (this.placing !== null && !paletteFor(mode).includes(PALETTE[this.placing])) this.placing = null;
+        this.host.toast(mode === 'pro' ? 'Profi: alle Bausteine und Werte' : 'Einfach: die wichtigsten Bausteine');
+        this.refreshUi();
+        break;
+      }
       case 'jumps': this.prefs.set({ showJumps: !this.prefs.get().showJumps }); this.refreshUi(); break;
       case 'level': this.levelPanel = !this.levelPanel; if (this.levelPanel) this.selected = null; this.refreshUi(); break;
     }
@@ -447,17 +469,18 @@ export class Editor {
     this.issues = levelIssues(l);
     this.ui.setTop({
       canUndo: this.state.canUndo, canRedo: this.state.canRedo, grid: this.grid, pan: this.panTool,
-      canSave: canSaveToProject, levelOpen: this.levelPanel, sketch: this.prefs.get().view === 'sketch', jumps: this.prefs.get().showJumps, testable: !this.issues.some((i) => i.level === 'error'),
+      canSave: canSaveToProject, levelOpen: this.levelPanel, pro: this.prefs.get().mode === 'pro', sketch: this.prefs.get().view === 'sketch', jumps: this.prefs.get().showJumps, testable: !this.issues.some((i) => i.level === 'error'),
     });
     if (this.fromArea !== null && this.fromArea >= l.stations.length) this.fromArea = null;
     this.ui.setStations(l.stations.length, this.fromArea);
-    this.ui.setPalette(this.placing);
-    if (this.levelPanel) this.ui.setSide(`Level: ${l.name}`, levelFields(l), true, false);
+    const mode = this.prefs.get().mode;
+    this.ui.setPalette(this.placing, new Set(paletteFor(mode).map((p) => PALETTE.indexOf(p))));
+    if (this.levelPanel && mode === 'pro') this.ui.setSide(`Level: ${l.name}`, levelFields(l), true, false);
     else if (this.selected) {
       const sel = this.selected;
       const n = sel.kind === 'station' || sel.kind === 'dismount' ? ` ${sel.index + 1}` : '';
       const name = sel.kind === 'mover' ? ((getElement(l, sel) as { kind: string }).kind === 'crow' ? 'Krähe' : 'Glocke') : elementName(sel);
-      this.ui.setSide(`${name}${n}`, fieldsFor(l, sel), false, true);
+      this.ui.setSide(`${name}${n}`, fieldsForMode(mode, fieldsFor(l, sel)), false, true);
     } else this.ui.setSide(null, [], false, false);
     this.refreshStatus();
   }
@@ -465,7 +488,8 @@ export class Editor {
   private refreshStatus(): void {
     const c = this.checks;
     const areas = this.doc.level.areas.map((_, i) => ({ solved: c?.areas[i]?.ok ?? false, reason: c?.areas[i]?.reason ?? 'Noch nicht geprüft' }));
-    this.ui.setStatus(areas, !!c && c.areas.some((a) => a.ok), this.issues);
+    const mode = this.prefs.get().mode;
+    this.ui.setStatus(areas, mode === 'pro' && !!c && c.areas.some((a) => a.ok), this.issues.map((i) => ({ ...i, text: friendlyIssue(i, mode) })));
   }
 
   // ------------------------------------------------------------ Eingabe
