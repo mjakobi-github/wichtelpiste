@@ -1,4 +1,4 @@
-import type { LevelData, MotionPath, Obstacle, Rect, Segment, Spring, Station, Vec2 } from './types';
+import type { LevelData, MotionPath, Obstacle, Rect, Segment, Spring, Station, Vec2, Platform } from './types';
 import { circleIntersectsRect, dist } from './geometry';
 
 export const CHIMNEY_W = 44;
@@ -52,8 +52,8 @@ export function chimneyZone(c: Vec2): Rect {
 }
 
 /** Statische Welt: Festkörper für den Fuß-Modus, deren Kanten für den Schlitten. */
-export function buildStatics(level: LevelData): { solids: Rect[]; sledSegments: Segment[] } {
-  const solids: Rect[] = [
+export function buildStatics(level: LevelData): { solids: Platform[]; sledSegments: Segment[] } {
+  const solids: Platform[] = [
     ...level.platforms,
     ...level.icicles.map((o) => obstacleRect(o, 'icicle')),
     ...level.candies.map((o) => obstacleRect(o, 'candy')),

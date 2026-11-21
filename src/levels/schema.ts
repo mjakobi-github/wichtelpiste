@@ -99,7 +99,11 @@ export function validateLevel(raw: unknown, source: string): LevelData {
     worldW: pos(r.worldW, 'worldW'),
     worldH: pos(r.worldH, 'worldH'),
     spawn: vec(r.spawn, 'spawn'),
-    platforms: list(r.platforms, 'platforms', false, rect),
+    platforms: list(r.platforms, 'platforms', false, (e, p) => {
+      const o = obj(e, p);
+      if (o.ice !== undefined && typeof o.ice !== 'boolean') fail(`${p}.ice`, 'muss true oder false sein');
+      return { ...rect(e, p), ice: o.ice === true };
+    }),
     stations,
     dismounts: list(r.dismounts, 'dismounts', true, rect),
     gifts,

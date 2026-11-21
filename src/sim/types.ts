@@ -2,6 +2,8 @@
 
 export interface Vec2 { x: number; y: number }
 export interface Rect { x: number; y: number; w: number; h: number }
+/** Festkörper; ice = rutschig zu Fuß (langsam beschleunigen, lange ausrutschen). */
+export interface Platform extends Rect { ice?: boolean }
 
 /** Tintenbudget: Weltpixel Linienlänge oder unbegrenzt. */
 export type Budget = number | 'unlimited';
@@ -46,7 +48,7 @@ export interface LevelData {
   worldW: number;
   worldH: number;
   spawn: Vec2;
-  platforms: Rect[];
+  platforms: Platform[];
   stations: Station[];
   dismounts: Rect[];
   gifts: Vec2[];

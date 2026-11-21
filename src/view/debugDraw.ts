@@ -20,7 +20,8 @@ export class DebugDraw {
     for (const d of level.dismounts) g.rect(d.x, d.y, d.w, d.h).fill({ color: 0x40ff90, alpha: 0.08 });
     for (const p of level.platforms) {
       g.rect(p.x, p.y, p.w, p.h).fill(0x1b2150);
-      g.rect(p.x - 3, p.y - 5, p.w + 6, 8).fill(0xeef4ff);
+      if (p.ice) g.rect(p.x, p.y - 4, p.w, 7).fill({ color: 0x9fe8ff, alpha: 0.9 });
+      else g.rect(p.x - 3, p.y - 5, p.w + 6, 8).fill(0xeef4ff);
     }
     for (const o of level.icicles) { const r = obstacleRect(o, 'icicle'); g.rect(r.x, r.y, r.w, r.h).fill(0x9fe8ff); }
     for (const o of level.candies) { const r = obstacleRect(o, 'candy'); g.rect(r.x, r.y, r.w, r.h).fill(0xffffff).stroke({ width: 3, color: 0xe83350 }); }

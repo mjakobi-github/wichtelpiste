@@ -22,6 +22,16 @@ describe('validateLevel', () => {
     expect(() => validateLevel(raw, 'x.json')).toThrow(/areas/);
   });
 
+  it('Plattform mit Eis: ice wird übernommen, sonst false', () => {
+    const raw = minimalLevel();
+    const plats = raw.platforms as object[];
+    raw.platforms = [{ ...plats[0], ice: true }, ...plats];
+    const lv = validateLevel(raw, 'x.json');
+    expect(lv.platforms[0].ice).toBe(true);
+    expect(lv.platforms[1].ice).toBe(false);
+    expect(() => validateLevel({ ...raw, platforms: [{ ...plats[0], ice: 'ja' }] }, 'x.json')).toThrow(/platforms\[0\]\.ice/);
+  });
+
   it('mehr Landezonen als Abschnitte wirft', () => {
     const raw = { ...minimalLevel(), dismounts: [{ x: 0, y: 0, w: 10, h: 10 }, { x: 20, y: 0, w: 10, h: 10 }] };
     expect(() => validateLevel(raw, 'x.json')).toThrow(/dismounts/);

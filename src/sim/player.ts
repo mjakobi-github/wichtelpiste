@@ -1,4 +1,4 @@
-import type { Rect, Vec2 } from './types';
+import type { Platform, Rect, Vec2 } from './types';
 import { overlap } from './geometry';
 
 /** Eingabe für den Fuß-Modus. jumpPressed = Flanke seit dem letzten Tick. */
@@ -28,6 +28,9 @@ export const PLAYER_TUNING = {
   jumpBuffer: 0.12,
   /** Mindest-Aufwärtstempo einer Sprungfeder zu Fuß */
   springJump: 1400,
+  /** Eis: träge anfahren, lange ausrutschen */
+  iceAccel: 900,
+  iceFriction: 220,
 } as const;
 
 export class Player {
@@ -36,6 +39,8 @@ export class Player {
   vel: Vec2 = { x: 0, y: 0 };
   facing: 1 | -1 = 1;
   grounded = false;
+  /** Steht gerade auf Eis */
+  onIce = false;
 
   private coyote = 0;
   private buffer = 0;
@@ -52,6 +57,7 @@ export class Player {
     this.vel = { x: 0, y: 0 };
     this.facing = 1;
     this.grounded = false;
+    this.onIce = false;
     this.coyote = 0;
     this.buffer = 0;
     this.canCut = false;
@@ -73,16 +79,17 @@ export class Player {
     this.canCut = false;
   }
 
-  update(dt: number, input: FootInput, solids: Rect[]): FootEvents {
+  update(dt: number, input: FootInput, solids: Platform[]): FootEvents {
     const k = PLAYER_TUNING;
     const ev: FootEvents = { jumped: false, landed: null };
     this.prevPos = { ...this.pos };
 
     // Horizontal
     const target = input.move * k.maxRunSpeed;
+    const ice = this.grounded && this.onIce;
     const accel = input.move !== 0
-      ? (this.grounded ? k.groundAccel : k.airAccel)
-      : (this.grounded ? k.groundFriction : k.airFriction);
+      ? (ice ? k.iceAccel : this.grounded ? k.groundAccel : k.airAccel)
+      : (ice ? k.iceFriction : this.grounded ? k.groundFriction : k.airFriction);
     this.vel.x = approach(this.vel.x, target, accel * dt);
     if (input.move !== 0) this.facing = input.move > 0 ? 1 : -1;
 
@@ -123,6 +130,7 @@ export class Player {
     const wasGrounded = this.grounded;
     const impact = this.vel.y;
     this.grounded = false;
+    this.onIce = false;
     this.pos.y += this.vel.y * dt;
     this.solve(solids, 'y');
     if (this.grounded && !wasGrounded) ev.landed = impact;
@@ -130,7 +138,7 @@ export class Player {
     return ev;
   }
 
-  private solve(solids: Rect[], axis: 'x' | 'y'): void {
+  private solve(solids: Platform[], axis: 'x' | 'y'): void {
     const { w, h } = PLAYER_TUNING.size;
     for (const s of solids) {
       if (!overlap(this.aabb, s)) continue;
@@ -142,6 +150,7 @@ export class Player {
         this.pos.y = s.y - h;
         this.vel.y = 0;
         this.grounded = true;
+        this.onIce = s.ice === true;
       } else if (this.vel.y < 0) {
         this.pos.y = s.y + s.h;
         this.vel.y = 0;

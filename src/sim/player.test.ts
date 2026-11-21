@@ -147,3 +147,41 @@ describe('Player Sprung', () => {
     expect(p.prevPos).toEqual(before);
   });
 });
+
+describe('Player auf Eis', () => {
+  const ICE = { ...GROUND, ice: true };
+
+  function slide(ground: Rect) {
+    const p = new Player({ x: 0, y: ground.y - H });
+    p.update(DT, idle, [ground]);
+    let tMax = 0;
+    for (let i = 0; i < 120; i++) {
+      p.update(DT, { move: 1, jumpHeld: false, jumpPressed: false }, [ground]);
+      if (!tMax && p.vel.x >= PLAYER_TUNING.maxRunSpeed) tMax = (i + 1) * DT;
+    }
+    const x0 = p.pos.x;
+    for (let i = 0; i < 300 && p.vel.x > 0; i++) p.update(DT, idle, [ground]);
+    return { tMax, slide: p.pos.x - x0, onIce: p.onIce };
+  }
+
+  it('rutscht nach dem Loslassen deutlich weiter als auf Schnee', () => {
+    const snow = slide(GROUND);
+    const ice = slide(ICE);
+    expect(snow.onIce).toBe(false);
+    expect(ice.onIce).toBe(true);
+    expect(ice.slide).toBeGreaterThan(snow.slide * 4);
+    expect(ice.slide).toBeGreaterThan(120);
+  });
+
+  it('kommt langsamer auf Tempo', () => {
+    expect(slide(ICE).tMax).toBeGreaterThan(slide(GROUND).tMax * 2.5);
+  });
+
+  it('Springen auf Eis geht normal', () => {
+    const p = new Player({ x: 0, y: ICE.y - H });
+    p.update(DT, idle, [ICE]);
+    const ev = p.update(DT, { move: 0, jumpHeld: true, jumpPressed: true }, [ICE]);
+    expect(ev.jumped).toBe(true);
+    expect(p.onIce).toBe(false);
+  });
+});
