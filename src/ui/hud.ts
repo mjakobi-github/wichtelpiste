@@ -33,10 +33,11 @@ export class Hud {
     this.el.classList.toggle('hidden', !v);
   }
 
-  update(sim: Simulation, levelNumber: number): void {
+  /** prefix: z. B. „3.“, „Probe:“, „Geschenk:“ */
+  update(sim: Simulation, prefix: string): void {
     const lv = sim.level;
     const n = lv.stations.length;
-    this.label.textContent = `${levelNumber > 0 ? `${levelNumber}.` : 'Probe:'} ${lv.name}${n > 1 && sim.mode === 'sled' ? ` · Abschnitt ${sim.activeArea + 1}/${n}` : ''}`;
+    this.label.textContent = `${prefix} ${lv.name}${n > 1 && sim.mode === 'sled' ? ` · Abschnitt ${sim.activeArea + 1}/${n}` : ''}`;
     const count = `${sim.giftTaken.filter(Boolean).length} / ${lv.gifts.length}`;
     if (this.giftCount.textContent !== count) {
       if (this.giftCount.textContent) {
