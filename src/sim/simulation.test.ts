@@ -194,4 +194,62 @@ describe('Simulation', () => {
     expect(ev.some((e) => e.type === 'arrive' && e.stuck)).toBe(true);
     expect(sim.mode).toBe('foot');
   });
+
+  it('strokeCancel verwirft den laufenden Strich', () => {
+    const sim = new Simulation(level());
+    sim.boardForTest(0);
+    sim.command({ type: 'strokeBegin', p: { x: 1000, y: 100 }, boost: false });
+    sim.command({ type: 'strokeMove', p: { x: 1050, y: 100 } });
+    sim.command({ type: 'strokeCancel' });
+    sim.step(DT, IDLE);
+    expect(sim.ink.strokes.length).toBe(0);
+    expect(sim.ink.remaining(0, false)).toBe(1000);
+  });
+
+  it('Nach der Ankunft: zurück zum Zeichnen stellt den Stand vor der Fahrt her', () => {
+    const sim = new Simulation(level({
+      dismounts: [{ x: 600, y: 400, w: 100, h: 100 }],
+      gifts: [{ x: 345, y: 494 }, { x: 900, y: 481 }],
+    }));
+    expect(sim.canReplan).toBe(false);
+    sim.boardForTest(0);
+    drawLine(sim, { x: 1000, y: 100 }, { x: 1100, y: 100 });
+    sim.command({ type: 'launch' });
+    runUntil(sim, 5, IDLE, (e) => e.type === 'arrive');
+    expect(sim.mode).toBe('foot');
+    expect(sim.giftTaken[0]).toBe(true);
+    expect(sim.canReplan).toBe(true);
+    // zu Fuß weiter, zweites Geschenk einsammeln
+    runUntil(sim, 2, RIGHT, (e) => e.type === 'gift');
+    expect(sim.giftTaken[1]).toBe(true);
+    sim.command({ type: 'replan' });
+    const ev = sim.step(DT, IDLE);
+    expect(ev).toContainEqual({ type: 'board', area: 0 });
+    expect(sim.mode).toBe('sled');
+    expect(sim.phase).toBe('plan');
+    expect(sim.activeArea).toBe(0);
+    expect(sim.giftTaken).toEqual([false, false]);
+    expect(sim.ink.strokes.length).toBe(1);
+    expect(sim.sled.pos.x).toBeCloseTo(300, 0);
+  });
+
+  it('replan ohne vorherige Fahrt bewirkt nichts', () => {
+    const sim = new Simulation(level());
+    sim.command({ type: 'replan' });
+    sim.step(DT, IDLE);
+    expect(sim.mode).toBe('foot');
+  });
+
+  it('nach Einsteigen an der nächsten Station gilt replan für den neuen Abschnitt', () => {
+    const sim = new Simulation(level({
+      stations: [{ pos: { x: 300, y: 440 } }, { pos: { x: 1500, y: 440 } }],
+      areas: [{ ink: 1000, boost: 0 }, { ink: 1000, boost: 0 }],
+      dismounts: [{ x: 600, y: 400, w: 100, h: 100 }],
+    }));
+    sim.boardForTest(0);
+    sim.command({ type: 'launch' });
+    runUntil(sim, 5, IDLE, (e) => e.type === 'arrive');
+    sim.boardForTest(1);
+    expect(sim.canReplan).toBe(false);
+  });
 });

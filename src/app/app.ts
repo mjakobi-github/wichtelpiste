@@ -11,6 +11,7 @@ import { Hud } from '../ui/hud';
 import { Toolbar, type ToolAction } from '../ui/toolbar';
 import { TouchControls } from '../ui/touchControls';
 import { Progress } from './progress';
+import { fullscreenSupported, toggleFullscreen } from '../ui/fullscreen';
 
 type Screen = 'menu' | 'play' | 'won';
 
@@ -43,6 +44,7 @@ export class App {
     this.hud = new Hud(this.uiRoot);
     this.toolbar = new Toolbar(this.uiRoot, (t) => this.setTool(t), (a) => this.action(a));
     this.touch = new TouchControls(this.uiRoot, this.input);
+    this.toolbar.fullscreenBtn.classList.toggle('hidden', !fullscreenSupported());
     this.overlay = document.createElement('div');
     this.overlay.className = 'overlay hidden';
     this.uiRoot.appendChild(this.overlay);
@@ -57,6 +59,7 @@ export class App {
       toWorld: (x, y) => this.view.screenToWorld(x, y),
       send: (c) => this.send(c),
       pan: (dx, dy) => this.view.panBy(dx, dy),
+      zoom: (f, x, y) => this.view.zoomAt(f, x, y),
     });
 
     new Loop((dt) => this.update(dt), (alpha) => this.render(alpha)).start();
@@ -71,6 +74,7 @@ export class App {
     this.hud.show(false);
     this.touch.show(false);
     this.toolbar.setPlanning(false, false);
+    this.toolbar.setReplan(false);
     const items = LEVELS.map((lv, i) => {
       const p = this.progress.get(lv);
       const stars = '★'.repeat(p.stars) + '☆'.repeat(3 - p.stars);
@@ -101,6 +105,7 @@ export class App {
     const best = this.progress.get(lv).bestInk;
     const next = this.levelIdx + 1 < LEVELS.length;
     this.toolbar.setPlanning(false, false);
+    this.toolbar.setReplan(false);
     this.touch.show(false);
     this.showOverlay(`<div class="panel"><h2>Level geschafft!</h2>
       <div style="font-size:40px">${'★'.repeat(r.stars)}${'☆'.repeat(3 - r.stars)}</div>
@@ -133,7 +138,11 @@ export class App {
   }
 
   private action(a: ToolAction): void {
+    if (a === 'fullscreen') { void toggleFullscreen(); return; }
     if (a === 'pause') { this.openMenu(); return; }
+    if (a === 'zoomIn') this.view.zoomStep(1.25);
+    if (a === 'zoomOut') this.view.zoomStep(0.8);
+    if (a === 'replan') this.send({ type: 'replan' });
     if (a === 'undo') this.send({ type: 'undo' });
     if (a === 'clear') this.send({ type: 'clear' });
     if (a === 'launch') this.send({ type: 'launch' });
@@ -143,8 +152,12 @@ export class App {
     if (code === 'Escape') { if (this.screen === 'play') this.openMenu(); return; }
     if (this.screen !== 'play' || !this.sim) return;
     const planning = this.sim.mode === 'sled' && this.sim.phase === 'plan';
+    if (code === 'KeyF') { void toggleFullscreen(); return; }
     if (code === 'KeyR') this.send({ type: 'retry' });
+    if (code === 'KeyQ') this.send({ type: 'replan' });
     if (!planning) return;
+    if (code === 'Equal' || code === 'NumpadAdd' || code === 'BracketRight') this.view.zoomStep(1.25);
+    if (code === 'Minus' || code === 'NumpadSubtract' || code === 'Slash') this.view.zoomStep(0.8);
     if (code === 'Space') this.send({ type: 'launch' });
     if (code === 'Backspace') this.send({ type: 'clear' });
     if (code === 'KeyU' || (code === 'KeyZ' && (e.ctrlKey || e.metaKey))) { this.send({ type: 'undo' }); return; }
@@ -170,7 +183,7 @@ export class App {
       case 'checkpoint': audio.checkpoint(); this.hud.toast('Checkpoint!'); break;
       case 'board': this.setTool('draw'); break;
       case 'launch': audio.launch(); break;
-      case 'arrive': this.hud.toast(e.stuck ? 'Doch zu Fuß weiter …' : 'Angekommen – Checkpoint!'); break;
+      case 'arrive': this.hud.toast(e.stuck ? 'Doch zu Fuß weiter … (oder zurück zum Zeichnen)' : 'Angekommen – Checkpoint!'); break;
       case 'crash': audio.crash(); if (e.cause === 'stall') this.hud.toast('Der Schlitten kommt nicht weiter – nochmal planen'); break;
       case 'inkEmpty': this.hud.toast(e.boost ? 'Speedtinte aufgebraucht!' : 'Tinte aufgebraucht!'); break;
       case 'blocked': this.hud.toast('Hier kann man nicht zeichnen'); break;
@@ -189,6 +202,7 @@ export class App {
     const planning = sim.mode === 'sled' && sim.phase === 'plan';
     this.toolbar.setPlanning(planning, sim.level.areas[sim.activeArea].boost !== 0);
     this.touch.show(sim.mode === 'foot');
+    this.toolbar.setReplan(sim.canReplan);
     this.hud.update(sim, this.levelIdx + 1);
   }
 }

@@ -1,6 +1,6 @@
 import type { ToolName } from '../engine/gestures';
 
-export type ToolAction = 'undo' | 'clear' | 'launch' | 'pause';
+export type ToolAction = 'undo' | 'clear' | 'launch' | 'pause' | 'zoomIn' | 'zoomOut' | 'fullscreen' | 'replan';
 
 const TOOLS: { tool: ToolName; label: string; title: string }[] = [
   { tool: 'draw', label: '✏️', title: 'Piste (Z)' },
@@ -9,12 +9,15 @@ const TOOLS: { tool: ToolName; label: string; title: string }[] = [
   { tool: 'pan', label: '✋', title: 'Verschieben (P)' },
 ];
 
-/** Werkzeugleiste (Planungsphase), LOS-Knopf, Pause-Knopf. */
+/** Werkzeugleiste (Planungsphase), Zoom, LOS-Knopf, Pause/Vollbild, „Zurück zum Zeichnen“. */
 export class Toolbar {
   private readonly bar: HTMLElement;
   private readonly launch: HTMLButtonElement;
   private readonly buttons = new Map<ToolName, HTMLButtonElement>();
   private readonly boostBtn: HTMLButtonElement;
+  private readonly zoomBar: HTMLElement;
+  private readonly replan: HTMLButtonElement;
+  readonly fullscreenBtn: HTMLButtonElement;
 
   constructor(root: HTMLElement, onTool: (t: ToolName) => void, onAction: (a: ToolAction) => void) {
     this.bar = document.createElement('div');
@@ -27,8 +30,18 @@ export class Toolbar {
     this.boostBtn = this.buttons.get('boost')!;
     btn(this.bar, 'toolbtn', '↶', 'Rückgängig (U)', () => onAction('undo'));
     btn(this.bar, 'toolbtn danger', '🗑️', 'Abschnitt löschen (Backspace)', () => onAction('clear'));
+    this.zoomBar = document.createElement('div');
+    this.zoomBar.className = 'zoombar hidden';
+    root.appendChild(this.zoomBar);
+    btn(this.zoomBar, 'toolbtn', '＋', 'Hineinzoomen (+)', () => onAction('zoomIn'));
+    btn(this.zoomBar, 'toolbtn', '－', 'Herauszoomen (-)', () => onAction('zoomOut'));
     this.launch = btn(root, 'launch hidden', '🛷 LOS!', 'Losfahren (Leertaste)', () => onAction('launch'));
-    btn(root, 'pausebtn', '☰', 'Pause (Esc)', () => onAction('pause'));
+    this.replan = btn(root, 'replan hidden', '✏️ Zurück zum Zeichnen', 'Zurück zum Zeichnen (Q)', () => onAction('replan'));
+    const corner = document.createElement('div');
+    corner.className = 'corner';
+    root.appendChild(corner);
+    this.fullscreenBtn = btn(corner, 'toolbtn', '⛶', 'Vollbild (F)', () => onAction('fullscreen'));
+    btn(corner, 'toolbtn', '☰', 'Pause (Esc)', () => onAction('pause'));
   }
 
   setTool(t: ToolName): void {
@@ -38,7 +51,12 @@ export class Toolbar {
   setPlanning(planning: boolean, boostAvailable: boolean): void {
     this.bar.classList.toggle('hidden', !planning);
     this.launch.classList.toggle('hidden', !planning);
+    this.zoomBar.classList.toggle('hidden', !planning);
     this.boostBtn.classList.toggle('hidden', !boostAvailable);
+  }
+
+  setReplan(visible: boolean): void {
+    this.replan.classList.toggle('hidden', !visible);
   }
 }
 

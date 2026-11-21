@@ -14,6 +14,7 @@ function setup(tool: ToolName = 'draw', enabled = true) {
   const el = document.createElement('div');
   const sent: Command[] = [];
   const pans: [number, number][] = [];
+  const zooms: [number, number, number][] = [];
   const state = { tool, enabled };
   new Gestures(el, {
     tool: () => state.tool,
@@ -21,8 +22,9 @@ function setup(tool: ToolName = 'draw', enabled = true) {
     toWorld: (x, y) => ({ x: x * 2, y: y * 2 }),
     send: (c) => sent.push(c),
     pan: (dx, dy) => pans.push([dx, dy]),
+    zoom: (f, x, y) => zooms.push([f, x, y]),
   });
-  return { el, sent, pans, state };
+  return { el, sent, pans, zooms, state };
 }
 
 describe('Gestures', () => {
@@ -44,13 +46,36 @@ describe('Gestures', () => {
     expect(sent[0]).toEqual({ type: 'strokeBegin', p: { x: 20, y: 20 }, boost: true });
   });
 
-  it('zweiter Finger während des Zeichnens wird ignoriert', () => {
-    const { el, sent } = setup();
-    el.dispatchEvent(ptr('pointerdown', 1, 10, 10));
-    el.dispatchEvent(ptr('pointerdown', 2, 50, 50));
-    el.dispatchEvent(ptr('pointermove', 2, 60, 60));
-    el.dispatchEvent(ptr('pointerup', 2, 60, 60));
-    expect(sent).toEqual([{ type: 'strokeBegin', p: { x: 20, y: 20 }, boost: false }]);
+  it('zweiter Finger: Strich wird verworfen, Kneifen zoomt und verschiebt um die Mitte', () => {
+    const { el, sent, zooms, pans } = setup();
+    el.dispatchEvent(ptr('pointerdown', 1, 100, 100));
+    el.dispatchEvent(ptr('pointerdown', 2, 200, 100));
+    expect(sent).toEqual([{ type: 'strokeBegin', p: { x: 200, y: 200 }, boost: false }, { type: 'strokeCancel' }]);
+    // Abstand 100 → 200, Mitte bleibt bei x=150
+    el.dispatchEvent(ptr('pointermove', 1, 50, 100));
+    el.dispatchEvent(ptr('pointermove', 2, 250, 100));
+    const f = zooms.reduce((a, z) => a * z[0], 1);
+    expect(f).toBeCloseTo(2, 5);
+    expect(zooms[zooms.length - 1][1]).toBeCloseTo(150, 5);
+    // beide Finger nach rechts: verschieben
+    el.dispatchEvent(ptr('pointermove', 1, 60, 100));
+    expect(pans[pans.length - 1][0]).toBeCloseTo(5, 5);
+    el.dispatchEvent(ptr('pointerup', 1, 60, 100));
+    el.dispatchEvent(ptr('pointermove', 2, 270, 100));
+    el.dispatchEvent(ptr('pointerup', 2, 270, 100));
+    // nach dem Kneifen zeichnet der übrige Finger nicht weiter
+    expect(sent.filter((c) => c.type === 'strokeMove')).toEqual([]);
+    // neuer Strich danach möglich
+    el.dispatchEvent(ptr('pointerdown', 3, 5, 5));
+    expect(sent[sent.length - 1]).toEqual({ type: 'strokeBegin', p: { x: 10, y: 10 }, boost: false });
+  });
+
+  it('Mausrad zoomt um den Zeiger', () => {
+    const { el, zooms } = setup();
+    el.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, clientX: 30, clientY: 40 }));
+    expect(zooms.length).toBe(1);
+    expect(zooms[0][0]).toBeGreaterThan(1);
+    expect(zooms[0].slice(1)).toEqual([30, 40]);
   });
 
   it('pointercancel beendet den Strich', () => {

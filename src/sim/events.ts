@@ -5,11 +5,14 @@ export type Command =
   | { type: 'strokeBegin'; p: Vec2; boost: boolean }
   | { type: 'strokeMove'; p: Vec2 }
   | { type: 'strokeEnd' }
+  | { type: 'strokeCancel' }
   | { type: 'erase'; p: Vec2 }
   | { type: 'undo' }
   | { type: 'clear' }
   | { type: 'launch' }
-  | { type: 'retry' };
+  | { type: 'retry' }
+  /** Nach der Ankunft zu Fuß: zurück an die letzte Station, Stand vor der Fahrt. */
+  | { type: 'replan' };
 
 export interface WinResult { stars: 1 | 2 | 3; gifts: number; giftTotal: number; inkUsed: number }
 

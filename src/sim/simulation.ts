@@ -49,6 +49,9 @@ export class Simulation {
   private readonly staticSegs: Segment[];
   private queue: Command[] = [];
   private giftSnapshot: boolean[];
+  /** Stand beim letzten LOS – für „zurück zum Zeichnen“ nach der Ankunft. */
+  private rideSnapshot: { area: number; checkpointIdx: number; respawnPos: Vec2 } | null = null;
+  private lastRideArea: number | null = null;
   private boardCooldown = 0;
   private stuckTime = 0;
   private bestReach = 0;
@@ -68,6 +71,11 @@ export class Simulation {
     this.giftTaken = level.gifts.map(() => false);
     this.giftSnapshot = [...this.giftTaken];
     this.springCooldown = level.springs.map(() => 0);
+  }
+
+  /** Darf man nach der Ankunft zurück an die letzte Station und neu planen? */
+  get canReplan(): boolean {
+    return this.mode === 'foot' && this.lastRideArea !== null && !this.won;
   }
 
   command(c: Command): void {
@@ -134,6 +142,9 @@ export class Simulation {
       case 'strokeEnd':
         this.ink.end();
         return;
+      case 'strokeCancel':
+        this.ink.cancel();
+        return;
       case 'erase':
         if (this.canDraw()) this.ink.eraseAt(this.activeArea, c.p);
         return;
@@ -148,6 +159,7 @@ export class Simulation {
         this.ink.end();
         this.phase = 'ride';
         this.giftSnapshot = [...this.giftTaken];
+        this.rideSnapshot = { area: this.activeArea, checkpointIdx: this.checkpointIdx, respawnPos: { ...this.respawnPos } };
         this.moverClock = 0;
         this.stuckTime = 0;
         this.bestReach = 0;
@@ -159,6 +171,15 @@ export class Simulation {
         if (this.mode === 'foot') this.respawnFoot();
         else if (this.phase === 'ride') this.restartRide();
         return;
+      case 'replan': {
+        const snap = this.rideSnapshot;
+        if (!this.canReplan || !snap) return;
+        this.giftTaken = [...this.giftSnapshot];
+        this.checkpointIdx = snap.checkpointIdx;
+        this.respawnPos = { ...snap.respawnPos };
+        this.board(snap.area, ev);
+        return;
+      }
     }
   }
 
@@ -217,6 +238,7 @@ export class Simulation {
 
   private board(area: number, ev: SimEvent[]): void {
     this.ink.end();
+    this.lastRideArea = null;
     this.mode = 'sled';
     this.phase = 'plan';
     this.activeArea = area;
@@ -298,6 +320,7 @@ export class Simulation {
     this.boardCooldown = BOARD_COOLDOWN;
     this.respawnPos = { ...this.player.pos };
     this.moverClock = 0;
+    this.lastRideArea = this.activeArea;
     ev.push({ type: 'arrive', pos: { ...this.player.pos }, stuck });
   }
 

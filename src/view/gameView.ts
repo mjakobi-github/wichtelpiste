@@ -7,7 +7,11 @@ import { Camera } from './camera';
 import { DebugDraw, lerp } from './debugDraw';
 
 const ZOOM_FOOT = 1;
-const ZOOM_SLED = 0.5;
+const ZOOM_RIDE = 0.55;
+/** Start-Zoom beim Planen; der Spieler kann ihn per Kneifen/Mausrad/Knöpfen ändern. */
+const ZOOM_PLAN_DEFAULT = 0.85;
+const ZOOM_PLAN_MIN = 0.35;
+const ZOOM_PLAN_MAX = 2.5;
 const ZOOM_RATE = 4;
 
 /** Orchestriert die Darstellung: Kamera, Weltebene, später Hintergründe und Effekte. */
@@ -19,6 +23,9 @@ export class GameView {
   private lastTime = performance.now();
   /** In der Planungsphase: hat der Spieler selbst verschoben? Dann nicht mehr nachführen. */
   private panned = false;
+  /** Vom Spieler gewählter Zoom beim Planen (bleibt über Levels hinweg erhalten). */
+  private planZoom = ZOOM_PLAN_DEFAULT;
+  private planning = false;
 
   constructor(private readonly app: Application) {
     this.world.addChild(this.debug.container);
@@ -47,7 +54,8 @@ export class GameView {
     for (const e of events) if (e.type === 'board' || e.type === 'launch' || e.type === 'crash') this.panned = false;
 
     const cam = this.camera;
-    const target = sim.mode === 'sled' ? ZOOM_SLED : ZOOM_FOOT;
+    this.planning = sim.mode === 'sled' && sim.phase === 'plan';
+    const target = sim.mode === 'foot' ? ZOOM_FOOT : this.planning ? this.planZoom : ZOOM_RIDE;
     cam.zoom += (target - cam.zoom) * (1 - Math.exp(-ZOOM_RATE * dt));
     cam.updateScale();
 
@@ -78,6 +86,26 @@ export class GameView {
     this.camera.cx -= dx / this.camera.scale;
     this.camera.cy -= dy / this.camera.scale;
     if (this.level) this.camera.clampTo({ w: this.level.worldW, h: this.level.worldH });
+  }
+
+  /** Zoomt beim Planen um Faktor f; der Bildschirmpunkt (x, y) bleibt fest. */
+  zoomAt(f: number, x: number, y: number): void {
+    if (!this.planning || !this.level) return;
+    const cam = this.camera;
+    const before = cam.screenToWorld(x, y);
+    this.planZoom = clamp(cam.zoom * f, ZOOM_PLAN_MIN, ZOOM_PLAN_MAX);
+    cam.zoom = this.planZoom;
+    cam.updateScale();
+    const after = cam.screenToWorld(x, y);
+    cam.cx += before.x - after.x;
+    cam.cy += before.y - after.y;
+    cam.clampTo({ w: this.level.worldW, h: this.level.worldH });
+    this.panned = true;
+  }
+
+  /** Zoom-Knöpfe: um die Bildschirmmitte */
+  zoomStep(f: number): void {
+    this.zoomAt(f, this.camera.screenW / 2, this.camera.screenH / 2);
   }
 
   destroy(): void {

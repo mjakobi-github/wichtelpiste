@@ -101,6 +101,15 @@ export class Ink {
     this.changed();
   }
 
+  /** Verwirft den laufenden Strich komplett (z. B. wenn ein zweiter Finger zum Zoomen dazukommt). */
+  cancel(): void {
+    const s = this.active;
+    if (!s) return;
+    this.active = null;
+    this.refund(s.area, s.boost, polyLen(s.pts));
+    this.remove(s);
+  }
+
   eraseAt(area: number, p: Vec2): boolean {
     const r = INK_TUNING.eraseRadius;
     let any = false;

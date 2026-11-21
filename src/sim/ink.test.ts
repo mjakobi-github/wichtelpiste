@@ -126,4 +126,17 @@ describe('Ink', () => {
     expect(ink.strokes.length).toBe(0);
     expect(ink.remaining(0, false)).toBe(1500);
   });
+
+  it('cancel verwirft den laufenden Strich und erstattet die Tinte', () => {
+    const ink = new Ink(AREAS, []);
+    draw(ink, 0, false, { x: 0, y: 0 }, { x: 100, y: 0 });
+    const before = ink.remaining(0, false);
+    ink.begin(0, false, { x: 0, y: 50 });
+    ink.extend({ x: 40, y: 50 });
+    ink.cancel();
+    expect(ink.strokes.length).toBe(1);
+    expect(ink.remaining(0, false)).toBe(before);
+    ink.cancel(); // ohne laufenden Strich: nichts passiert
+    expect(ink.strokes.length).toBe(1);
+  });
 });
