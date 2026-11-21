@@ -39,6 +39,7 @@ export function readQr(m: boolean[][]): Uint8Array {
   const ecc = ECC_PER_BLOCK_M[ver];
   const numShort = nb - (raw % nb);
   const shortLen = Math.floor(raw / nb);
+  let k = 0;
   // Datenteil steht vorn, ECC hinten – aber beim Verschachteln stehen die ECC-Bytes aller Blöcke gemeinsam hinten
   const dataLen = (j: number): number => shortLen - ecc + (j < numShort ? 0 : 1);
   const fixed: number[][] = Array.from({ length: nb }, () => []);
