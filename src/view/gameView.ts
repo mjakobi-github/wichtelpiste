@@ -9,6 +9,9 @@ import { DebugDraw, lerp } from './debugDraw';
 import { Backdrop } from './backdrop';
 import { canvasTexture } from './backdrop/util';
 import { Roofs } from './world/roofs';
+import { GiftFlights, WorldObjects } from './world/objects';
+import { Hazards } from './world/hazards';
+import { Shake } from './fx/shake';
 import { StrokeView } from './world/strokes';
 import { Elf } from './actors/elf';
 import { SledActor } from './actors/sled';
@@ -36,7 +39,12 @@ export class GameView {
   private readonly roofLights = new Container();
   private readonly roofLayer = new Container();
   private readonly strokes = new StrokeView();
-  private readonly objects = new DebugDraw(false);
+  private readonly objLayer = new Container();
+  private readonly objGlow = new Container();
+  private objects: WorldObjects | null = null;
+  private hazards: Hazards | null = null;
+  private readonly flights = new GiftFlights();
+  private readonly shake = new Shake();
   private readonly debug: DebugDraw | null;
   private readonly elf = new Elf();
   private readonly sled = new SledActor();
@@ -64,12 +72,12 @@ export class GameView {
 
   constructor(private readonly app: Application) {
     const params = new URLSearchParams(window.location.search);
-    this.debug = params.has('debug') ? new DebugDraw(true) : null;
+    this.debug = params.has('debug') ? new DebugDraw() : null;
     const forced = params.get('q');
     this.tier = forced === 'low' || forced === 'medium' ? forced : 'high';
 
-    this.world.addChild(this.roofLayer, this.objects.container);
-    this.glowWorld.addChild(this.roofLights, this.strokes.container, this.particles.container);
+    this.world.addChild(this.roofLayer, this.objLayer);
+    this.glowWorld.addChild(this.roofLights, this.objGlow, this.strokes.container, this.particles.container);
     this.frontWorld.addChild(this.sled.container, this.elf.container);
     if (this.debug) this.frontWorld.addChild(this.debug.container);
     this.vignetteTex = canvasTexture(256, 256, (g) => {
@@ -81,7 +89,7 @@ export class GameView {
     });
     this.vignette = new Sprite(this.vignetteTex);
     this.bloomHost.addChild(this.glowWorld);
-    app.stage.addChild(this.backLayer, this.world, this.bloomHost, this.frontWorld, this.frontLayer, this.vignette);
+    app.stage.addChild(this.backLayer, this.world, this.bloomHost, this.frontWorld, this.frontLayer, this.vignette, this.flights.container);
 
     this.bloom = new Bloom(this.bloomHost);
     if (this.debug) {
@@ -116,8 +124,14 @@ export class GameView {
 
   async load(level: LevelData): Promise<void> {
     this.level = level;
-    this.objects.load(level);
     this.debug?.load(level);
+    this.objects?.destroy();
+    this.hazards?.destroy();
+    this.objects = new WorldObjects(level);
+    this.hazards = new Hazards(level);
+    this.objLayer.addChild(this.objects.container, this.hazards.container);
+    this.objGlow.addChild(this.objects.glow, this.hazards.glow);
+    this.flights.clear();
 
     this.backdrop?.destroy();
     this.backdrop = new Backdrop(level.theme, { w: this.camera.screenW, h: this.camera.screenH }, QUALITY[this.tier].particles);
@@ -172,14 +186,18 @@ export class GameView {
     }
     cam.clampTo({ w: this.level.worldW, h: this.level.worldH });
 
+    this.shake.update(dt);
+    const sh = this.shake.offset(t);
     for (const w of [this.world, this.glowWorld, this.frontWorld]) {
       w.scale.set(cam.scale);
-      w.position.set(-cam.left * cam.scale, -cam.top * cam.scale);
+      w.position.set(-cam.left * cam.scale + sh.x, -cam.top * cam.scale + sh.y);
     }
     this.backdrop?.update(cam.cx, cam.cy, t);
     this.roofs?.update(t);
     this.strokes.update(sim.ink.strokes, t);
-    this.objects.render(sim, alpha);
+    this.objects?.update(sim, t, dt);
+    this.hazards?.update(sim, t, this.planning);
+    this.flights.update(dt);
     this.debug?.render(sim, alpha);
     this.renderActors(sim, alpha, dt, t);
     this.particles.update(dt);
@@ -238,17 +256,32 @@ export class GameView {
         this.elf.land(e.speed);
         if (e.speed > 250) fx.snowPuff(e.pos, clamp(e.speed / 1000, 0.3, 1.4));
         break;
-      case 'gift': fx.burst(e.pos); break;
-      case 'spring': fx.burst(e.pos, 0x40e0ff); break;
-      case 'checkpoint': fx.burst(e.pos, 0x40ff90); break;
-      case 'crash': fx.snowPuff(e.pos, 1.5); fx.burst(e.pos, 0xff4d5e); break;
+      case 'gift': fx.burst(e.pos); this.flyGift(e.pos); break;
+      case 'spring': fx.burst(e.pos, 0x40e0ff); this.objects?.springFired(e.pos); this.shake.kick(3); break;
+      case 'checkpoint': fx.burst({ x: e.pos.x, y: e.pos.y - 50 }, 0xffc060); break;
+      case 'crash': fx.snowPuff(e.pos, 1.5); fx.burst(e.pos, 0xff4d5e); this.shake.kick(8); break;
+      case 'blocked': this.objects?.blocked(e.pos); break;
       case 'board': this.panned = false; fx.snowPuff(sim.level.stations[e.area].pos, 0.8); break;
       case 'launch': this.panned = false; break;
       case 'arrive': fx.snowPuff(e.pos, 0.8); break;
-      case 'win': this.elf.cheer(); fx.confetti({ x: sim.level.chimney.x, y: sim.level.chimney.y - 60 }); break;
+      case 'win': this.elf.cheer(); this.objects?.win(); fx.confetti({ x: sim.level.chimney.x, y: sim.level.chimney.y - 60 }); break;
       default: break;
     }
     if (e.type === 'crash') this.panned = false;
+  }
+
+  /** Geschenk-Sprite fliegt von der Weltposition zum HUD-Zähler (oben links als Rückfall). */
+  private flyGift(p: Vec2): void {
+    const cam = this.camera;
+    const from = { x: (p.x - cam.left) * cam.scale, y: (p.y - cam.top) * cam.scale };
+    let to = { x: 40, y: 20 };
+    const el = document.querySelector('.hud-gifts');
+    if (el) {
+      const r = el.getBoundingClientRect();
+      const c = this.app.canvas.getBoundingClientRect();
+      if (r.width > 0) to = { x: r.left - c.left + 14, y: r.top - c.top + r.height / 2 };
+    }
+    this.flights.launch(from, to, cam.scale);
   }
 
   screenToWorld(x: number, y: number): Vec2 {
@@ -285,6 +318,8 @@ export class GameView {
   destroy(): void {
     this.backdrop?.destroy();
     this.roofs?.destroy();
+    this.objects?.destroy();
+    this.hazards?.destroy();
     this.particles.destroy();
     this.vignetteTex.destroy(true);
     this.world.destroy({ children: true });

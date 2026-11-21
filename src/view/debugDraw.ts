@@ -4,57 +4,42 @@ import type { Simulation } from '../sim/simulation';
 import { chimneyZone, obstacleRect, springZone, stationZone } from '../sim/elements';
 import { PLAYER_TUNING } from '../sim/player';
 
-/**
- * Schlichte Formen-Darstellung. full (nur mit ?debug): alles inkl. Plattformen,
- * Linien, Figuren und Kollisionsboxen. Sonst nur Platzhalter für Objekte, die
- * noch keine eigene Grafik haben (bis Task 11).
- */
+/** Nur mit ?debug: Kollisionsrahmen aller Elemente, Linien und Figuren als Umrisse. */
 export class DebugDraw {
   readonly container = new Container();
   private readonly statics = new Graphics();
   private readonly dynamic = new Graphics();
 
-  constructor(private readonly full = false) {
+  constructor() {
     this.container.addChild(this.statics, this.dynamic);
   }
 
   load(level: LevelData): void {
     const g = this.statics.clear();
-    for (const z of level.noDraw) g.rect(z.x, z.y, z.w, z.h).fill({ color: 0x8090ff, alpha: 0.12 }).stroke({ width: 2, color: 0x8090ff, alpha: 0.6 });
-    if (this.full) for (const d of level.dismounts) g.rect(d.x, d.y, d.w, d.h).fill({ color: 0x40ff90, alpha: 0.08 });
-    if (this.full) for (const p of level.platforms) g.rect(p.x, p.y, p.w, p.h).stroke({ width: 1.5, color: p.ice ? 0x9fe8ff : 0xff4060 });
-    for (const o of level.icicles) { const r = obstacleRect(o, 'icicle'); g.rect(r.x, r.y, r.w, r.h).fill(0x9fe8ff); }
-    for (const o of level.candies) { const r = obstacleRect(o, 'candy'); g.rect(r.x, r.y, r.w, r.h).fill(0xffffff).stroke({ width: 3, color: 0xe83350 }); }
-    for (const h of level.hazards) g.rect(h.rect.x, h.rect.y, h.rect.w, h.rect.h).fill({ color: 0xff3040, alpha: 0.85 });
-    for (const s of level.stations) { const z = stationZone(s); g.rect(z.x, z.y, z.w, z.h).stroke({ width: 2, color: 0xffd27a, alpha: 0.7 }); }
+    const box = (x: number, y: number, w: number, h: number, color: number): void => {
+      g.rect(x, y, w, h).stroke({ width: 1.5, color });
+    };
+    for (const z of level.noDraw) box(z.x, z.y, z.w, z.h, 0x8090ff);
+    for (const d of level.dismounts) box(d.x, d.y, d.w, d.h, 0x40ff90);
+    for (const p of level.platforms) box(p.x, p.y, p.w, p.h, p.ice ? 0x9fe8ff : 0xff4060);
+    for (const o of level.icicles) { const r = obstacleRect(o, 'icicle'); box(r.x, r.y, r.w, r.h, 0xff4060); }
+    for (const o of level.candies) { const r = obstacleRect(o, 'candy'); box(r.x, r.y, r.w, r.h, 0xff4060); }
+    for (const h of level.hazards) box(h.rect.x, h.rect.y, h.rect.w, h.rect.h, 0xffff00);
+    for (const s of level.stations) { const z = stationZone(s); box(z.x, z.y, z.w, z.h, 0xffd27a); }
+    for (const s of level.springs) { const z = springZone(s); box(z.x, z.y, z.w, z.h, 0x40e0ff); }
     const c = chimneyZone(level.chimney);
-    g.rect(level.chimney.x - 15, level.chimney.y - 56, 30, 56).fill(0x7a2e35);
-    g.rect(c.x, c.y, c.w, c.h).stroke({ width: 1, color: 0xffd27a, alpha: 0.4 });
+    box(c.x, c.y, c.w, c.h, 0xffd27a);
   }
 
   render(sim: Simulation, alpha: number): void {
     const g = this.dynamic.clear();
-    const lv = sim.level;
-
-    // Ziel des aktiven Abschnitts hervorheben
-    if (sim.mode === 'sled') {
-      const z = sim.targetZone() ?? chimneyZone(lv.chimney);
-      const a = 0.55 + 0.35 * Math.sin(performance.now() / 250);
-      g.rect(z.x, z.y, z.w, z.h).stroke({ width: 4, color: 0x40ff90, alpha: a });
-    }
-
-    if (this.full) for (const s of sim.ink.strokes) {
+    for (const s of sim.ink.strokes) {
       if (s.pts.length < 2) continue;
       g.moveTo(s.pts[0].x, s.pts[0].y);
       for (let i = 1; i < s.pts.length; i++) g.lineTo(s.pts[i].x, s.pts[i].y);
-      g.stroke({ width: 4, color: s.boost ? 0xff4d5e : 0xf2fcff, cap: 'round', join: 'round' });
+      g.stroke({ width: 1, color: s.boost ? 0xff4d5e : 0x00ffff });
     }
-    lv.gifts.forEach((p, i) => { if (!sim.giftTaken[i]) g.rect(p.x - 9, p.y - 9, 18, 18).fill(0xffcc3d); });
-    lv.checkpoints.forEach((p, i) => g.rect(p.x - 3, p.y - 50, 6, 50).fill(i <= sim.checkpointIdx ? 0x40ff90 : 0x8890b0));
-    for (const s of lv.springs) { const z = springZone(s); g.rect(z.x, z.y, z.w, z.h).fill(0x40e0ff); }
-    sim.moverPositions().forEach((p, i) => g.circle(p.x, p.y, lv.movers[i].radius).fill({ color: 0xff3040, alpha: 0.9 }));
-
-    if (!this.full) return;
+    sim.moverPositions().forEach((p, i) => g.circle(p.x, p.y, sim.level.movers[i].radius).stroke({ width: 1.5, color: 0xffff00 }));
     if (sim.mode === 'foot') {
       const p = lerp(sim.player.prevPos, sim.player.pos, alpha);
       g.rect(p.x, p.y, PLAYER_TUNING.size.w, PLAYER_TUNING.size.h).stroke({ width: 1.5, color: 0xff4060 });
