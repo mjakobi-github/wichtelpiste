@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "id": "zwei-daecher",
+  "name": "Zwei Dächer weiter",
+  "worldW": 2950,
+  "worldH": 820,
+  "spawn": { "x": 80, "y": 560 },
+  "platforms": [
+    { "x": 0, "y": 620, "w": 620, "h": 200 },
+    { "x": 290, "y": 500, "w": 150, "h": 24 },
+    { "x": 1120, "y": 680, "w": 600, "h": 140 },
+    { "x": 2320, "y": 720, "w": 630, "h": 100 }
+  ],
+  "stations": [{ "pos": { "x": 560, "y": 560 } }, { "pos": { "x": 1660, "y": 620 } }],
+  "dismounts": [{ "x": 1120, "y": 530, "w": 240, "h": 150 }],
+  "gifts": [
+    { "x": 200, "y": 595 }, { "x": 365, "y": 470 }, { "x": 880, "y": 700 },
+    { "x": 1480, "y": 655 }, { "x": 2000, "y": 740 }
+  ],
+  "checkpoints": [{ "x": 1420, "y": 680 }],
+  "icicles": [], "candies": [], "hazards": [], "movers": [], "springs": [], "noDraw": [],
+  "chimney": { "x": 2700, "y": 720 },
+  "areas": [{ "ink": 800, "boost": 0 }, { "ink": 800, "boost": 0 }],
+  "theme": { "seed": 37, "auroraHue": 200 },
+  "hints": [
+    { "at": { "x": 1360, "y": 400, "w": 260, "h": 420 }, "text": "Jede Station hat ihre eigene Tinte", "icon": "station" }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "id": "erste-fahrt",
+  "name": "Erste Fahrt",
+  "worldW": 2400,
+  "worldH": 720,
+  "spawn": { "x": 80, "y": 560 },
+  "platforms": [
+    { "x": 0, "y": 620, "w": 760, "h": 100 },
+    { "x": 1300, "y": 650, "w": 1100, "h": 70 }
+  ],
+  "stations": [{ "pos": { "x": 680, "y": 560 } }],
+  "dismounts": [{ "x": 1300, "y": 500, "w": 240, "h": 150 }],
+  "gifts": [
+    { "x": 260, "y": 595 }, { "x": 460, "y": 595 }, { "x": 1000, "y": 660 },
+    { "x": 1760, "y": 625 }, { "x": 2000, "y": 625 }
+  ],
+  "checkpoints": [{ "x": 1620, "y": 650 }],
+  "icicles": [], "candies": [], "hazards": [], "movers": [], "springs": [], "noDraw": [],
+  "chimney": { "x": 2250, "y": 650 },
+  "areas": [{ "ink": 1400, "boost": 0 }],
+  "theme": { "seed": 11, "auroraHue": 150 },
+  "hints": [
+    { "at": { "x": 0, "y": 300, "w": 380, "h": 420 }, "text": "Lauf los und sammle die Geschenke", "icon": "move" },
+    { "at": { "x": 380, "y": 300, "w": 260, "h": 420 }, "text": "Lauf zur Station", "icon": "station" },
+    { "at": { "x": 600, "y": 300, "w": 200, "h": 420 }, "text": "Zeichne eine Piste über die Lücke", "icon": "draw" },
+    { "at": { "x": 600, "y": 300, "w": 200, "h": 420 }, "text": "Tippe auf LOS!", "icon": "launch" },
+    { "at": { "x": 1540, "y": 300, "w": 860, "h": 420 }, "text": "Bring die Geschenke zum Schornstein", "icon": "chimney" }
+  ]
+}

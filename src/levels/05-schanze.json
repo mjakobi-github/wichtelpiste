@@ -1,0 +1,108 @@
+{
+  "version": 1,
+  "id": "schanze",
+  "name": "Die Schanze",
+  "worldW": 2700,
+  "worldH": 880,
+  "spawn": {
+    "x": 80,
+    "y": 420
+  },
+  "platforms": [
+    {
+      "x": 0,
+      "y": 480,
+      "w": 700,
+      "h": 400
+    },
+    {
+      "x": 1700,
+      "y": 640,
+      "w": 1000,
+      "h": 240
+    }
+  ],
+  "stations": [
+    {
+      "pos": {
+        "x": 640,
+        "y": 420
+      }
+    }
+  ],
+  "dismounts": [
+    {
+      "x": 1700,
+      "y": 490,
+      "w": 260,
+      "h": 150
+    }
+  ],
+  "gifts": [
+    {
+      "x": 250,
+      "y": 455
+    },
+    {
+      "x": 450,
+      "y": 455
+    },
+    {
+      "x": 1120,
+      "y": 640
+    },
+    {
+      "x": 2050,
+      "y": 615
+    },
+    {
+      "x": 2250,
+      "y": 615
+    }
+  ],
+  "checkpoints": [
+    {
+      "x": 1900,
+      "y": 640
+    }
+  ],
+  "icicles": [],
+  "candies": [],
+  "hazards": [],
+  "movers": [],
+  "springs": [],
+  "noDraw": [
+    {
+      "x": 1010,
+      "y": 0,
+      "w": 230,
+      "h": 880
+    }
+  ],
+  "chimney": {
+    "x": 2520,
+    "y": 640
+  },
+  "areas": [
+    {
+      "ink": 1100,
+      "boost": 0
+    }
+  ],
+  "theme": {
+    "seed": 53,
+    "auroraHue": 260
+  },
+  "hints": [
+    {
+      "at": {
+        "x": 560,
+        "y": 300,
+        "w": 220,
+        "h": 580
+      },
+      "text": "Blaues Feld: Spring mit einer Schanze drüber",
+      "icon": "draw"
+    }
+  ]
+}

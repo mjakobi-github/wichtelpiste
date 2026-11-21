@@ -78,6 +78,10 @@ export class App {
 
     new Loop((dt) => this.update(dt), (alpha) => this.render(alpha)).start();
     this.openTitle();
+    if (new URLSearchParams(window.location.search).has('debug')) {
+      // Lösungen für src/levels/solutions/<id>.json: in der Konsole copy(__exportStrokes())
+      (window as unknown as { __exportStrokes: () => string }).__exportStrokes = () => this.exportStrokes();
+    }
   }
 
   // ------------------------------------------------------------ Ablauf
@@ -176,6 +180,16 @@ export class App {
 
   private hideOverlay(): void {
     this.overlay.classList.remove('visible');
+  }
+
+  /** Gezeichnete Linien des aktuellen Levels im Lösungsformat (nur ?debug). */
+  private exportStrokes(): string {
+    const sim = this.sim;
+    if (!sim) return '';
+    const areas = sim.level.areas.map((_, i) => ({
+      strokes: sim.ink.strokes.filter((s) => s.area === i).map((s) => ({ boost: s.boost, pts: s.pts.map((p) => [Math.round(p.x), Math.round(p.y)]) })),
+    }));
+    return JSON.stringify({ areas });
   }
 
   // ------------------------------------------------------------ Eingabe
