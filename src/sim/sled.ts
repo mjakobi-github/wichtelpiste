@@ -168,7 +168,7 @@ function mid(a: Vec2, b: Vec2): Vec2 {
 function collide(q: Pt, segments: Segment[]): { n: Vec2; boost: Vec2 | null } | null {
   const r = SLED_TUNING.pointRadius;
   let best: Segment | null = null;
-  let bestD = r;
+  let bestD: number = r;
   let bestC: Vec2 | null = null;
   for (const s of segments) {
     // grober Ausschluss über die Bounding-Box
