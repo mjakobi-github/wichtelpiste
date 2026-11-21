@@ -137,7 +137,7 @@ export class App {
   private openTitle(): void {
     this.screen = 'title';
     this.toMenu();
-    this.showOverlay((el) => renderTitle(el, () => this.openLevels('start'), editorAllowed() ? () => void this.openEditor() : null));
+    this.showOverlay((el) => renderTitle(el, () => this.openLevels('start'), () => void this.openEditor()));
   }
 
   private openLevels(a: ScreenAction): void {
@@ -156,7 +156,7 @@ export class App {
         uiRoot: this.uiRoot,
         stageHost: this.stageHost,
         startTest: (level, fromArea, onBack) => void this.startTest(level, fromArea, onBack),
-        close: () => { this.editor?.hide(); this.openLevels('toLevels'); },
+        close: () => { this.editor?.hide(); this.openTitle(); },
         toast: (t, ms) => this.hud.toast(t, ms),
       };
       this.editor = new Editor(host, resume);
@@ -165,7 +165,7 @@ export class App {
     this.sim = null;
     this.hideGameUi();
     this.hideOverlay();
-    this.editor.show();
+    this.editor.show(!resume);
   }
 
   /** recorder: beim Neustart weiterverwenden, damit schon geschaffte Abschnitte nicht verloren gehen. */

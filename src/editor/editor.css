@@ -29,7 +29,7 @@
   scrollbar-width: thin; scrollbar-color: rgba(160, 200, 255, 0.35) transparent;
 }
 .ed-pal { justify-content: flex-start; min-height: 40px; padding: 0 10px; border-radius: 10px; font-size: 14px; gap: 8px; flex: none; }
-.ed-pal .sw { width: 12px; height: 12px; border-radius: 3px; border: 2px solid currentColor; flex: none; }
+.ed-pal .glyph { width: 24px; height: 24px; flex: none; }
 .kind-platform .sw { color: #fff; } .kind-spawn .sw { color: #7dffb0; } .kind-station .sw, .kind-chimney .sw, .kind-hint .sw { color: #ffd27a; }
 .kind-dismount .sw { color: #40ff90; } .kind-gift .sw { color: #ff5a70; } .kind-checkpoint .sw { color: #ffc060; }
 .kind-icicle .sw { color: #bfefff; } .kind-candy .sw { color: #ff9db0; } .kind-spring .sw { color: #40e0ff; }
@@ -72,3 +72,54 @@
 .ed-open { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; }
 .ed-open .ed-btn { justify-content: flex-start; font-size: 15px; }
 .title-editor { margin-top: 14px; padding: 8px 18px; }
+
+/* ---------------------------------------------------------------- Allgemein: Menü, Karten, Blatt-Kopf */
+.ed-phone-inline { display: none; }
+.ed-desk-inline { display: inline-flex; gap: 6px; align-items: center; }
+.ed-side-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ed-side-head h3 { margin: 0 0 10px; }
+.ed-close { min-width: 44px; min-height: 44px; padding: 0; display: none; }
+.ed-menu {
+  position: absolute; top: calc(58px + var(--safe-t)); right: calc(66px + var(--safe-r)); z-index: 20; pointer-events: auto;
+  display: flex; flex-direction: column; min-width: 240px; padding: 6px; border-radius: 14px;
+  background: var(--glass-strong); border: 1px solid var(--glass-edge); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.ed-mi { justify-content: flex-start; min-height: 44px; border: none; background: transparent; padding: 0 12px; border-radius: 10px; gap: 10px; font-size: 16px; }
+.ed-mi:active { background: rgba(255, 255, 255, 0.08); }
+.ed-mi.danger { color: var(--danger); }
+.ed-mi .tick { width: 20px; display: inline-flex; color: var(--accent); }
+.ed-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.ed-card { flex-direction: column; min-height: 84px; padding: 10px; gap: 4px; font-size: 16px; }
+.ed-card.current { border-color: var(--accent); }
+.ed-card-name { font-weight: 600; text-align: center; overflow-wrap: anywhere; }
+.ed-card-stars { color: var(--star); letter-spacing: 2px; }
+.ed-new { color: var(--accent); }
+.ed-start-row { margin-top: 12px; justify-content: flex-start; }
+
+/* ---------------------------------------------------------------- Handy (Querformat) */
+.editor.phone { font-size: 14px; }
+.editor.phone .ed-desk { display: none; }
+.editor.phone .ed-lbl-txt { display: none; }
+.editor.phone .ed-top { right: calc(62px + var(--safe-r)); top: calc(6px + var(--safe-t)); gap: 4px; flex-wrap: nowrap; }
+.editor.phone .ed-from { max-width: 116px; min-height: 44px; }
+.editor.phone .ed-menu { top: calc(54px + var(--safe-t)); max-height: calc(100% - 140px); overflow-y: auto; }
+
+.editor.phone .ed-palette {
+  top: auto; bottom: calc(4px + var(--safe-b)); left: calc(4px + var(--safe-l)); right: calc(4px + var(--safe-r)); width: auto;
+  flex-direction: row; overflow-x: auto; overflow-y: hidden; gap: 4px; padding: 0 0 2px; scrollbar-width: none;
+}
+.editor.phone .ed-pal { flex-direction: column; justify-content: center; min-width: 64px; min-height: 58px; padding: 4px 6px; gap: 2px; font-size: 11px; }
+.editor.phone .ed-pal .glyph { width: 26px; height: 26px; }
+
+.editor.phone .ed-side {
+  top: auto; bottom: calc(68px + var(--safe-b)); right: calc(8px + var(--safe-r)); left: auto; width: min(320px, 46vw);
+  max-height: calc(100% - 140px); padding: 10px;
+}
+.editor.phone .ed-side.empty { display: none; }
+.editor.phone .ed-close { display: inline-flex; }
+.editor.phone .ed-bottom { left: calc(8px + var(--safe-l)); right: auto; top: calc(58px + var(--safe-t)); bottom: auto; }
+.editor.phone .ed-status { padding: 4px 8px; }
+.editor.phone .ed-desk-inline { display: none; }
+.editor.phone .ed-phone-inline { display: inline-flex; }
+.editor.phone .ed-issues { display: none; max-height: 40vh; }
+.editor.phone .ed-issues.open { display: flex; }

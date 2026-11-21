@@ -219,3 +219,10 @@ button.hero { font-size: 26px; padding: 12px 36px; border-radius: 18px; animatio
   100% { transform: translate(34vw, 4vh); opacity: 0; }
 }
 @keyframes bounce { 50% { transform: translateY(-12px); } }
+
+/* ---------------------------------------------------------------- Eigene Dialoge */
+.dialog { position: absolute; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(4, 6, 20, 0.6); pointer-events: auto; }
+.dialog-panel { width: min(100%, 440px); text-align: center; }
+.dialog-panel p { color: var(--muted); margin: 0 0 16px; line-height: 1.4; }
+.dialog-input { font: inherit; font-size: 18px; width: 100%; min-height: 48px; margin-bottom: 16px; padding: 0 12px; color: var(--text); background: var(--glass-strong); border: 1px solid var(--glass-edge); border-radius: 12px; user-select: text; -webkit-user-select: text; touch-action: auto; }
+button.danger-btn { color: #fff; background: #c8354a; border: none; font-weight: 700; }

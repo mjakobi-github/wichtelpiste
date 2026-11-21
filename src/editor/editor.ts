@@ -21,6 +21,9 @@ import { PointerTool, type EditorAction, type Mods } from './pointer';
 import { EditorOverlay } from './overlay';
 import { EditorUi, PALETTE, type TopAction } from './panels';
 import { RenderGate } from './renderGate';
+import { layoutFor } from './layout';
+import { confirmDialog } from '../ui/dialog';
+import { Progress, progressKey } from '../app/progress';
 import { Prefs } from './prefs';
 import { reachFrom } from './jumpReach';
 import { autoInkAllowed, fieldsForMode, friendlyIssue, paletteFor } from './modes';
@@ -91,7 +94,8 @@ export class Editor {
       const same = LEVEL_FILES.find((f) => f.level.id === this.doc.level.id && JSON.stringify(f.level) === JSON.stringify(this.doc.level));
       if (same) this.doc = { ...this.doc, file: same.file };
     }
-    this.started = resume;
+    // resume: nach dem Neuladen durch „Ins Spiel speichern“ direkt weiterbauen (ohne Liste)
+    this.started = !resume;
     this.state = new EditorState(this.doc.level, this.doc.solution);
     this.still = new Simulation(this.doc.level);
     host.view.editorLayer.addChild(this.overlay.container);
@@ -104,6 +108,7 @@ export class Editor {
       issue: (i) => this.focusIssue(i),
       suggest: () => this.suggest(),
       testFrom: (v) => { this.fromArea = v; },
+      closeSide: () => { this.selected = null; this.levelPanel = false; this.refreshUi(); },
     });
     this.ui.fileInput.addEventListener('change', () => void this.readImport());
     this.pointer = new PointerTool({
@@ -119,8 +124,10 @@ export class Editor {
 
   // ------------------------------------------------------------ Sichtbarkeit
 
-  show(): void {
+  /** fromTitle: Einstieg über „Bauen“ → zuerst die Liste „Meine Levels“. */
+  show(fromTitle = false): void {
     this.visible = true;
+    this.ui.setLayout(layoutFor(window.innerWidth, window.innerHeight));
     const v = this.host.view;
     v.editMode = true;
     v.setManualRender(true);
@@ -135,9 +142,9 @@ export class Editor {
     else this.focusSpawn();
     this.refreshUi();
     this.scheduleCheck();
-    if (!this.started) {
+    if (fromTitle) {
+      if (this.started) this.showStart();
       this.started = true;
-      this.showStart();
     }
   }
 
@@ -190,23 +197,41 @@ export class Editor {
   // ------------------------------------------------------------ Startdialog
 
   private showStart(): void {
-    const d = this.lib.list()[0];
+    this.save();
+    const progress = new Progress(store());
     this.ui.showStart({
-      draft: d ? d.level.name : null,
-      levels: LEVEL_FILES.map((f) => ({ file: f.file, name: f.level.name })),
+      mine: this.lib.list().map((m) => ({
+        uid: m.uid, name: m.level.name, current: m.uid === this.uid,
+        stars: progress.get(m.level, progressKey.mine(m.uid)).stars,
+      })),
+      menuLevels: import.meta.env.DEV ? LEVEL_FILES.map((f) => ({ file: f.file, name: f.level.name })) : null,
     }, {
-      resume: () => {
-        const m = this.lib.list()[0];
-        if (m && m.uid !== this.uid) this.open(m.uid);
+      open: (uid) => {
+        if (uid !== this.uid) this.open(uid);
         this.ui.hideStart();
+        this.invalidate();
       },
       fresh: () => this.load({ level: newLevel(), solution: null, file: null, camera: null }),
-      open: (i) => {
+      openMenuLevel: (i) => {
         const f = LEVEL_FILES[i];
         this.load({ level: structuredClone(f.level), solution: solutionFor(f.level.id), file: f.file, camera: null });
       },
       importFile: () => this.ui.fileInput.click(),
+      close: () => this.host.close(),
     });
+  }
+
+  /** Aktuelles Level löschen (mit Rückfrage), danach die Liste zeigen. */
+  private async deleteLevel(): Promise<void> {
+    const ok = await confirmDialog(this.host.uiRoot, {
+      title: 'Level löschen?', text: `„${this.doc.level.name}“ ist danach weg – das kann man nicht rückgängig machen.`, ok: 'Löschen', danger: true,
+    });
+    if (!ok) return;
+    this.lib.remove(this.uid);
+    const next = this.lib.list()[0];
+    if (next) this.open(next.uid);
+    else this.load({ level: newLevel(), solution: null, file: null, camera: null });
+    this.showStart();
   }
 
   /** Eigenes Level zum Bearbeiten öffnen. */
@@ -376,6 +401,15 @@ export class Editor {
     this.host.toast('Tinte = 1,5 × deine Lösung');
   }
 
+  /** Teilen (Dialog folgt in Task 10): nur, wenn das Level selbst geschafft wurde. */
+  private share(): void {
+    if (!checkSolution(this.doc.level, this.doc.solution).ok) {
+      this.host.toast('Erst einmal selbst schaffen, dann kannst du teilen!', 2500);
+      return;
+    }
+    this.host.toast('Teilen kommt gleich', 1500);
+  }
+
   private test(): void {
     if (this.issues.some((i) => i.level === 'error')) { this.host.toast('Erst die Fehler in der Liste beheben', 2200); return; }
     this.hide();
@@ -475,6 +509,10 @@ export class Editor {
         this.refreshUi();
         break;
       }
+      case 'menu': this.ui.toggleMenu(); break;
+      case 'delete': void this.deleteLevel(); break;
+      case 'share': this.share(); break;
+      case 'issues': break;
       case 'mode': {
         const mode = this.prefs.get().mode === 'pro' ? 'simple' : 'pro';
         this.prefs.set({ mode });
@@ -556,12 +594,15 @@ export class Editor {
     }, { passive: false });
     el.addEventListener('contextmenu', (e) => { if (this.visible) e.preventDefault(); });
     window.addEventListener('keydown', (e) => this.keyDown(e));
-    window.addEventListener('resize', () => this.invalidate());
+    window.addEventListener('resize', () => {
+      if (this.visible) this.ui.setLayout(layoutFor(window.innerWidth, window.innerHeight));
+      this.invalidate();
+    });
     window.addEventListener('keyup', (e) => { if (e.code === 'Space') this.spaceHeld = false; });
   }
 
   private keyDown(e: KeyboardEvent): void {
-    if (!this.visible) return;
+    if (!this.visible || this.ui.startOpen || document.querySelector('.dialog')) return;
     const t = e.target as HTMLElement | null;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA')) return;
     const ctrl = e.ctrlKey || e.metaKey;
