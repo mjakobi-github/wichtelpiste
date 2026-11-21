@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "id": "spielplatz",
+  "name": "Spielplatz (Test)",
+  "worldW": 3000,
+  "worldH": 720,
+  "spawn": { "x": 100, "y": 560 },
+  "platforms": [
+    { "x": 0, "y": 620, "w": 900, "h": 100 },
+    { "x": 400, "y": 470, "w": 140, "h": 24 },
+    { "x": 980, "y": 680, "w": 80, "h": 20 },
+    { "x": 1700, "y": 620, "w": 1300, "h": 100 }
+  ],
+  "stations": [{ "pos": { "x": 820, "y": 560 } }],
+  "dismounts": [{ "x": 1700, "y": 470, "w": 220, "h": 150 }],
+  "gifts": [
+    { "x": 200, "y": 600 }, { "x": 470, "y": 450 }, { "x": 1050, "y": 560 },
+    { "x": 1600, "y": 470 }, { "x": 2000, "y": 600 }
+  ],
+  "checkpoints": [{ "x": 1800, "y": 620 }],
+  "springs": [
+    { "pos": { "x": 320, "y": 620 }, "angle": 0, "power": 1300 },
+    { "pos": { "x": 1020, "y": 680 }, "angle": 30, "power": 1400 }
+  ],
+  "hazards": [{ "kind": "tinsel", "rect": { "x": 620, "y": 600, "w": 40, "h": 20 } }],
+  "movers": [{ "kind": "bell", "radius": 18, "path": { "type": "pendulum", "pivot": { "x": 1450, "y": 300 }, "length": 200, "amplitude": 0.8, "period": 2.4 } }],
+  "noDraw": [{ "x": 1180, "y": 380, "w": 110, "h": 300 }],
+  "icicles": [{ "x": 2200, "y": 620, "h": 40 }],
+  "candies": [{ "x": 2500, "y": 620, "h": 70 }],
+  "chimney": { "x": 2900, "y": 620 },
+  "areas": [{ "ink": 1800, "boost": 350 }],
+  "theme": { "seed": 3, "auroraHue": 200 }
+}
