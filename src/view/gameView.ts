@@ -76,6 +76,7 @@ export class GameView {
   /** Editor: Kamera frei, Beweger-Bahnen sichtbar, Rendern auf Anforderung. */
   editMode = false;
   private roofKey = '';
+  private sketch = false;
   /** Zähler für Messungen (Editor-Leistung). */
   readonly stats = { roofBuilds: 0, stillRenders: 0 };
   /** Editor-Ebene (Umrisse, Griffe) mit derselben Kamera wie die Welt. */
@@ -171,7 +172,16 @@ export class GameView {
 
   /** Editor: Welt neu aufbauen, Kamera bleibt; Kulisse nur neu, wenn nötig. */
   showLevel(level: LevelData, opts: { keepBackdrop: boolean }): void {
+    if (this.sketch) {
+      // Skizze: keine Kulisse, keine Häuser/Objekte – die Editor-Ebene zeichnet alles als einfache Formen.
+      this.level = level;
+      this.setWorldVisible(true);
+      this.applySketchVisibility();
+      this.camera.updateScale();
+      return;
+    }
     this.buildWorld(level, opts.keepBackdrop && this.backdrop !== null, true);
+    this.applySketchVisibility();
     this.camera.updateScale();
   }
 
@@ -229,6 +239,24 @@ export class GameView {
     this.hazards?.update(sim, t, true);
     this.renderActors(sim, 1, dt, t);
     this.particles.update(dt);
+  }
+
+  /** Editor-Ansicht „Skizze“: Kulisse, Welt, Leuchten, Vordergrund und Vignette aus. Danach showLevel aufrufen. */
+  setSketch(on: boolean): void {
+    if (this.sketch === on) return;
+    this.sketch = on;
+    if (on) {
+      this.roofs?.destroy(); this.roofs = null; this.roofKey = '';
+      this.objects?.destroy(); this.objects = null;
+      this.hazards?.destroy(); this.hazards = null;
+      this.backdrop?.destroy(); this.backdrop = null;
+    }
+    this.applySketchVisibility();
+  }
+
+  private applySketchVisibility(): void {
+    const show = !this.sketch;
+    for (const c of [this.backLayer, this.world, this.bloomHost, this.frontLayer, this.vignette]) c.visible = show;
   }
 
   /** Editor: Pixi-Ticker anhalten und nur noch über renderNow() zeichnen (an), oder normal (aus). */

@@ -27,7 +27,7 @@ export const PALETTE: readonly PaletteEntry[] = [
   { kind: 'hint', label: 'Hinweis' },
 ];
 
-export type TopAction = 'back' | 'undo' | 'redo' | 'grid' | 'pan' | 'test' | 'save' | 'export' | 'import' | 'level';
+export type TopAction = 'back' | 'undo' | 'redo' | 'grid' | 'pan' | 'sketch' | 'jumps' | 'test' | 'save' | 'export' | 'import' | 'level';
 
 export interface UiHandlers {
   top(a: TopAction): void;
@@ -78,6 +78,8 @@ export class EditorUi {
     tb('redo', icon('redo'), 'Wiederholen (Strg+Y)');
     tb('grid', icon('grid'), 'Raster an/aus (G)');
     tb('pan', icon('hand'), 'Kamera verschieben (Leertaste halten)');
+    tb('sketch', icon('sketch'), 'Skizze: schlichte Ansicht, schont Akku und Rechner');
+    tb('jumps', icon('jumpArc'), 'Sprungweite am gewählten Boden zeigen');
     el('span', 'ed-gap', top);
     const testWrap = el('span', 'ed-test', top);
     const testBtn = el('button', 'ed-btn primary', testWrap);
@@ -120,7 +122,9 @@ export class EditorUi {
     this.root.classList.toggle('hidden', !v);
   }
 
-  setTop(state: { canUndo: boolean; canRedo: boolean; grid: boolean; pan: boolean; canSave: boolean; levelOpen: boolean; testable: boolean }): void {
+  setTop(state: { canUndo: boolean; canRedo: boolean; grid: boolean; pan: boolean; canSave: boolean; levelOpen: boolean; testable: boolean; sketch: boolean; jumps: boolean }): void {
+    this.topBtns.get('sketch')!.classList.toggle('on', state.sketch);
+    this.topBtns.get('jumps')!.classList.toggle('on', state.jumps);
     this.topBtns.get('undo')!.disabled = !state.canUndo;
     this.topBtns.get('redo')!.disabled = !state.canRedo;
     this.topBtns.get('grid')!.classList.toggle('on', state.grid);

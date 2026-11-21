@@ -20,6 +20,8 @@ import { PointerTool, type EditorAction, type Mods } from './pointer';
 import { EditorOverlay } from './overlay';
 import { EditorUi, PALETTE, type TopAction } from './panels';
 import { RenderGate } from './renderGate';
+import { Prefs } from './prefs';
+import { reachFrom } from './jumpReach';
 
 export interface EditorHost {
   view: GameView;
@@ -61,6 +63,7 @@ export class Editor {
   private dirtyView = true;
   /** Zeichnen nur bei Änderungen (Leerlauf: keine Bilder). */
   private readonly gate = new RenderGate();
+  private readonly prefs: Prefs;
   private lastBackdrop = '';
   private checks: SolutionCheck | null = null;
   private checkTimer = 0;
@@ -71,6 +74,7 @@ export class Editor {
 
   /** resume: direkt mit dem Entwurf weitermachen (z. B. nach dem Neuladen durch Speichern), ohne Startdialog. */
   constructor(private readonly host: EditorHost, resume = false) {
+    this.prefs = new Prefs(store(), host.view.quality === 'low');
     this.doc = this.draft.load() ?? { level: newLevel(), solution: null, file: null, camera: null };
     this.doc = { ...this.doc, level: repairLevel(this.doc.level) };
     if (!this.doc.file) {
@@ -111,6 +115,7 @@ export class Editor {
     const v = this.host.view;
     v.editMode = true;
     v.setManualRender(true);
+    v.setSketch(this.prefs.get().view === 'sketch');
     this.gate.invalidate('view');
     this.lastBackdrop = '';
     this.dirtyView = true;
@@ -132,6 +137,7 @@ export class Editor {
     this.save();
     this.visible = false;
     this.host.view.setManualRender(false);
+    this.host.view.setSketch(false);
     this.pointer.cancel();
     this.overlay.clear();
     this.overlay.container.visible = false;
@@ -147,7 +153,11 @@ export class Editor {
     v.renderStill(this.still, false);
     const cam = v.camera;
     const warned = this.issues.filter((i) => i.ref).map((i) => i.ref!);
-    this.overlay.draw(this.doc.level, this.selected, cam.scale, { x: cam.left, y: cam.top, w: cam.viewW, h: cam.viewH }, this.grid, warned);
+    const p = this.prefs.get();
+    let jumps: ReturnType<typeof reachFrom> = [];
+    try { jumps = p.showJumps && this.selected ? reachFrom(this.doc.level, this.selected) : []; } catch { jumps = []; }
+    this.overlay.draw(this.doc.level, this.selected, cam.scale, { x: cam.left, y: cam.top, w: cam.viewW, h: cam.viewH },
+      { grid: this.grid, warned, sketch: p.view === 'sketch', jumps });
     v.renderNow();
   }
 
@@ -417,6 +427,16 @@ export class Editor {
       case 'save': void this.saveProject(); break;
       case 'export': this.exportDownload(); break;
       case 'import': this.ui.fileInput.click(); break;
+      case 'sketch': {
+        const sketch = this.prefs.get().view !== 'sketch';
+        this.prefs.set({ view: sketch ? 'sketch' : 'pretty' });
+        this.host.view.setSketch(sketch);
+        this.lastBackdrop = '';
+        this.dirtyView = true;
+        this.refreshUi();
+        break;
+      }
+      case 'jumps': this.prefs.set({ showJumps: !this.prefs.get().showJumps }); this.refreshUi(); break;
       case 'level': this.levelPanel = !this.levelPanel; if (this.levelPanel) this.selected = null; this.refreshUi(); break;
     }
   }
@@ -427,7 +447,7 @@ export class Editor {
     this.issues = levelIssues(l);
     this.ui.setTop({
       canUndo: this.state.canUndo, canRedo: this.state.canRedo, grid: this.grid, pan: this.panTool,
-      canSave: canSaveToProject, levelOpen: this.levelPanel, testable: !this.issues.some((i) => i.level === 'error'),
+      canSave: canSaveToProject, levelOpen: this.levelPanel, sketch: this.prefs.get().view === 'sketch', jumps: this.prefs.get().showJumps, testable: !this.issues.some((i) => i.level === 'error'),
     });
     if (this.fromArea !== null && this.fromArea >= l.stations.length) this.fromArea = null;
     this.ui.setStations(l.stations.length, this.fromArea);
