@@ -34,6 +34,17 @@ function editorAllowed(): boolean {
   return import.meta.env.DEV || new URLSearchParams(window.location.search).has('editor');
 }
 
+/** Editor nach dem Neuladen (durch Speichern) wieder öffnen? Schlüssel wie REOPEN_KEY in editor.ts. */
+function consumeReopen(): boolean {
+  try {
+    const v = window.sessionStorage.getItem('wichtelpiste.editor.reopen');
+    window.sessionStorage.removeItem('wichtelpiste.editor.reopen');
+    return v === '1';
+  } catch {
+    return false;
+  }
+}
+
 /** Laufende Probefahrt aus dem Editor. */
 interface TestRun { level: LevelData; fromArea: number | null; recorder: Recorder; onBack: (rec: Recording) => void }
 
@@ -91,6 +102,7 @@ export class App {
 
     new Loop((dt) => this.update(dt), (alpha) => this.render(alpha)).start();
     this.openTitle();
+    if (editorAllowed() && consumeReopen()) void this.openEditor(true);
     if (new URLSearchParams(window.location.search).has('debug')) {
       // Lösungen für src/levels/solutions/<id>.json: in der Konsole copy(__exportStrokes())
       (window as unknown as { __exportStrokes: () => string }).__exportStrokes = () => this.exportStrokes();
@@ -116,6 +128,8 @@ export class App {
 
   private toMenu(): void {
     this.sim = null;
+    this.testRun = null;
+    this.view.editMode = false;
     this.hideGameUi();
     this.view.showScenery(MENU_THEME);
   }
@@ -134,7 +148,7 @@ export class App {
 
   // ------------------------------------------------------------ Editor
 
-  private async openEditor(): Promise<void> {
+  private async openEditor(resume = false): Promise<void> {
     if (!this.editor) {
       const { Editor } = await import('../editor/editor');
       const host: EditorHost = {
@@ -145,7 +159,7 @@ export class App {
         close: () => { this.editor?.hide(); this.openLevels('toLevels'); },
         toast: (t, ms) => this.hud.toast(t, ms),
       };
-      this.editor = new Editor(host);
+      this.editor = new Editor(host, resume);
     }
     this.go('openEditor');
     this.sim = null;

@@ -28,6 +28,17 @@ const PATHS = {
   rotate: `<rect ${S} x="7" y="2" width="10" height="20" rx="2"/><path ${S} d="M11 18h2"/>`,
   finger: `<path d="M9 11V4.5a1.5 1.5 0 0 1 3 0V10l5.6 1.2a2 2 0 0 1 1.5 2.3l-1 5.2A3 3 0 0 1 15.2 21H11a3 3 0 0 1-2.4-1.2L5 15a1.6 1.6 0 0 1 2.4-2.1L9 14.5z" fill="#f4f8ff" stroke="#2a3a5e" stroke-width="1.3" stroke-linejoin="round"/>`,
   ink: `<path ${S} d="M4 18c4-8 8 4 16-6"/>`,
+  redo: `<path ${S} d="M15 14l5-5-5-5"/><path ${S} d="M20 9H10a6 6 0 0 0 0 12h3"/>`,
+  grid: `<path ${S} d="M4 9h16M4 15h16M9 4v16M15 4v16"/>`,
+  pointer: `<path d="M6 3l12 9-5.5 1 3 6-2.5 1.2-3-6L6 18z" fill="currentColor"/>`,
+  save: `<path ${S} d="M5 4h11l3 3v13H5z"/><path ${S} d="M8 4v5h7V4M8 20v-6h8v6"/>`,
+  download: `<path ${S} d="M12 4v11M7 10l5 5 5-5M5 20h14"/>`,
+  upload: `<path ${S} d="M12 16V5M7 10l5-5 5 5M5 20h14"/>`,
+  settings: `<circle ${S} cx="12" cy="12" r="3"/><path ${S} d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>`,
+  back: `<path ${S} d="M15 5l-7 7 7 7"/>`,
+  copy: `<rect ${S} x="8" y="8" width="12" height="12" rx="2"/><path ${S} d="M4 16V5a1 1 0 0 1 1-1h11"/>`,
+  check: `<path ${S} d="M5 12l5 5 9-10"/>`,
+  warn: `<path ${S} d="M12 3l10 18H2z"/><path ${S} d="M12 10v5M12 18v.5"/>`,
 } as const;
 
 export type IconName = keyof typeof PATHS;
