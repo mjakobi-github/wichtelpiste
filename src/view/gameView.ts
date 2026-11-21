@@ -30,6 +30,8 @@ const ZOOM_EDIT_MIN = 0.2;
 const ZOOM_EDIT_MAX = 2.5;
 /** Editor: so weit darf die Kamera über die Weltränder hinaus. */
 const EDIT_MARGIN = 300;
+/** Titel/Levelauswahl: die Kulisse driftet nur langsam – 30 Bilder/s reichen und sparen Akku/CPU. */
+const MENU_FPS = 30;
 
 /** Orchestriert die Darstellung: Hintergrund, Welt, Figuren, Effekte, Kamera, Qualität. */
 export class GameView {
@@ -77,6 +79,10 @@ export class GameView {
   editMode = false;
   private roofKey = '';
   private sketch = false;
+  /** Pixi-Ticker angehalten: vom Editor (Rendern auf Anforderung) bzw. im Menü (gedrosselt). */
+  private manualRender = false;
+  private menuMode = false;
+  private lastMenuFrame = 0;
   /** Zähler für Messungen (Editor-Leistung). */
   readonly stats = { roofBuilds: 0, stillRenders: 0 };
   /** Editor-Ebene (Umrisse, Griffe) mit derselben Kamera wie die Welt. */
@@ -138,6 +144,7 @@ export class GameView {
   showScenery(theme: Theme): void {
     this.level = null;
     this.setWorldVisible(false);
+    this.setMenuMode(true);
     this.mountBackdrop(theme);
     this.particles.clear();
     this.flights.clear();
@@ -147,8 +154,24 @@ export class GameView {
     if (this.level || !this.backdrop) return;
     const now = performance.now();
     this.lastTime = now;
+    // kleine Toleranz, damit 60-Hz-Bildschirme sauber jedes zweite Bild zeichnen
+    if (now - this.lastMenuFrame < 1000 / MENU_FPS - 4) return;
+    this.lastMenuFrame = now;
     const t = now / 1000;
     this.backdrop.update(t * 30, 0, t);
+    this.app.render();
+  }
+
+  /** Menü: Ticker aus, renderScenery zeichnet selbst (gedrosselt); Spiel/Editor: normal. */
+  private setMenuMode(on: boolean): void {
+    this.menuMode = on;
+    this.lastMenuFrame = 0;
+    this.syncTicker();
+  }
+
+  private syncTicker(): void {
+    if (this.manualRender || this.menuMode) this.app.ticker.stop();
+    else this.app.ticker.start();
   }
 
   private setWorldVisible(v: boolean): void {
@@ -176,6 +199,7 @@ export class GameView {
       // Skizze: keine Kulisse, keine Häuser/Objekte – die Editor-Ebene zeichnet alles als einfache Formen.
       this.level = level;
       this.setWorldVisible(true);
+      this.setMenuMode(false);
       this.applySketchVisibility();
       this.camera.updateScale();
       return;
@@ -189,6 +213,7 @@ export class GameView {
   private buildWorld(level: LevelData, keepBackdrop: boolean, reuseRoofs = false): void {
     this.level = level;
     this.setWorldVisible(true);
+    this.setMenuMode(false);
     this.debug?.load(level);
     this.objects?.destroy();
     this.hazards?.destroy();
@@ -261,8 +286,8 @@ export class GameView {
 
   /** Editor: Pixi-Ticker anhalten und nur noch über renderNow() zeichnen (an), oder normal (aus). */
   setManualRender(on: boolean): void {
-    if (on) this.app.ticker.stop();
-    else this.app.ticker.start();
+    this.manualRender = on;
+    this.syncTicker();
   }
 
   /** Ein Bild zeichnen (bei angehaltenem Ticker); misst die Dauer für die Qualitätsstufe. */
