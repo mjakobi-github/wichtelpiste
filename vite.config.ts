@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 import { VitePWA } from 'vite-plugin-pwa';
 import type { Plugin } from 'vite';
-import { mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve, sep } from 'node:path';
 import { planSave } from './src/editor/savePlan';
 
@@ -57,6 +57,19 @@ function levelSave(): Plugin {
   };
 }
 
+/** Legt LICENSE und THIRD_PARTY_LICENSES.md in jeden Build – die Lizenzen verlangen, dass sie mitgeliefert werden. */
+function licenses(): Plugin {
+  return {
+    name: 'wichtelpiste-licenses',
+    apply: 'build',
+    generateBundle() {
+      for (const fileName of ['LICENSE', 'THIRD_PARTY_LICENSES.md']) {
+        this.emitFile({ type: 'asset', fileName, source: readFileSync(resolve(__dirname, fileName), 'utf8') });
+      }
+    },
+  };
+}
+
 /**
  * Zwei Build-Varianten aus derselben Codebase:
  *  - `npm run build`       -> dist/       (Ordner, für GitHub Pages / beliebigen Webspace; installierbare PWA, offline)
@@ -66,8 +79,8 @@ function levelSave(): Plugin {
 export default defineConfig(({ mode }) => ({
   base: './',
   plugins: mode === 'singlefile'
-    ? [viteSingleFile()]
-    : [levelSave(), VitePWA({
+    ? [viteSingleFile(), licenses()]
+    : [levelSave(), licenses(), VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'script-defer',
       pwaAssets: { config: true, overrideManifestIcons: true },

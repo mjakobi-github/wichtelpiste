@@ -158,3 +158,10 @@ muss einmalig in den Repo-Einstellungen unter Pages die Quelle
 „GitHub Actions“ gewählt werden. Durch `base: './'` ist der Repo-Name egal.
 
 Online: **https://mjakobi-github.github.io/wichtelpiste/**
+
+## Lizenz
+
+Der Code steht unter der [MIT-Lizenz](LICENSE). Mitgelieferte Fremdsoftware
+(PixiJS, pixi-filters: MIT; Schrift Fredoka: SIL Open Font License 1.1) und
+ihre Lizenztexte stehen in [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md).
+Beide Dateien liegen auch jedem Build bei.
