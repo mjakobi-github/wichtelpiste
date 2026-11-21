@@ -4,25 +4,25 @@ import type { Simulation } from '../sim/simulation';
 import { chimneyZone, obstacleRect, springZone, stationZone } from '../sim/elements';
 import { PLAYER_TUNING } from '../sim/player';
 
-/** Schlichte Formen-Darstellung aller Elemente (Abnahme Spielgefühl, später ?debug). */
+/**
+ * Schlichte Formen-Darstellung. full (nur mit ?debug): alles inkl. Plattformen,
+ * Linien, Figuren und Kollisionsboxen. Sonst nur Platzhalter für Objekte, die
+ * noch keine eigene Grafik haben (bis Task 11).
+ */
 export class DebugDraw {
   readonly container = new Container();
   private readonly statics = new Graphics();
   private readonly dynamic = new Graphics();
 
-  constructor() {
+  constructor(private readonly full = false) {
     this.container.addChild(this.statics, this.dynamic);
   }
 
   load(level: LevelData): void {
     const g = this.statics.clear();
     for (const z of level.noDraw) g.rect(z.x, z.y, z.w, z.h).fill({ color: 0x8090ff, alpha: 0.12 }).stroke({ width: 2, color: 0x8090ff, alpha: 0.6 });
-    for (const d of level.dismounts) g.rect(d.x, d.y, d.w, d.h).fill({ color: 0x40ff90, alpha: 0.08 });
-    for (const p of level.platforms) {
-      g.rect(p.x, p.y, p.w, p.h).fill(0x1b2150);
-      if (p.ice) g.rect(p.x, p.y - 4, p.w, 7).fill({ color: 0x9fe8ff, alpha: 0.9 });
-      else g.rect(p.x - 3, p.y - 5, p.w + 6, 8).fill(0xeef4ff);
-    }
+    if (this.full) for (const d of level.dismounts) g.rect(d.x, d.y, d.w, d.h).fill({ color: 0x40ff90, alpha: 0.08 });
+    if (this.full) for (const p of level.platforms) g.rect(p.x, p.y, p.w, p.h).stroke({ width: 1.5, color: p.ice ? 0x9fe8ff : 0xff4060 });
     for (const o of level.icicles) { const r = obstacleRect(o, 'icicle'); g.rect(r.x, r.y, r.w, r.h).fill(0x9fe8ff); }
     for (const o of level.candies) { const r = obstacleRect(o, 'candy'); g.rect(r.x, r.y, r.w, r.h).fill(0xffffff).stroke({ width: 3, color: 0xe83350 }); }
     for (const h of level.hazards) g.rect(h.rect.x, h.rect.y, h.rect.w, h.rect.h).fill({ color: 0xff3040, alpha: 0.85 });
@@ -43,7 +43,7 @@ export class DebugDraw {
       g.rect(z.x, z.y, z.w, z.h).stroke({ width: 4, color: 0x40ff90, alpha: a });
     }
 
-    for (const s of sim.ink.strokes) {
+    if (this.full) for (const s of sim.ink.strokes) {
       if (s.pts.length < 2) continue;
       g.moveTo(s.pts[0].x, s.pts[0].y);
       for (let i = 1; i < s.pts.length; i++) g.lineTo(s.pts[i].x, s.pts[i].y);
@@ -54,15 +54,16 @@ export class DebugDraw {
     for (const s of lv.springs) { const z = springZone(s); g.rect(z.x, z.y, z.w, z.h).fill(0x40e0ff); }
     sim.moverPositions().forEach((p, i) => g.circle(p.x, p.y, lv.movers[i].radius).fill({ color: 0xff3040, alpha: 0.9 }));
 
+    if (!this.full) return;
     if (sim.mode === 'foot') {
       const p = lerp(sim.player.prevPos, sim.player.pos, alpha);
-      g.rect(p.x, p.y, PLAYER_TUNING.size.w, PLAYER_TUNING.size.h).fill(0xe83350);
+      g.rect(p.x, p.y, PLAYER_TUNING.size.w, PLAYER_TUNING.size.h).stroke({ width: 1.5, color: 0xff4060 });
     } else {
       const p = sim.phase === 'ride' ? lerp(sim.sled.prevPos, sim.sled.pos, alpha) : sim.sled.pos;
       const a = sim.sled.angle;
       const dx = Math.cos(a) * 11;
       const dy = Math.sin(a) * 11;
-      g.moveTo(p.x - dx, p.y - dy).lineTo(p.x + dx, p.y + dy).stroke({ width: 8, color: 0xe83350, cap: 'round' });
+      g.moveTo(p.x - dx, p.y - dy).lineTo(p.x + dx, p.y + dy).stroke({ width: 2, color: 0xff4060, cap: 'round' });
     }
   }
 }

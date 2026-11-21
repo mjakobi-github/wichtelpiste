@@ -1,10 +1,20 @@
-import { Container, type Application } from 'pixi.js';
+import { Container, Rectangle, Sprite, type Application, type Texture } from 'pixi.js';
 import type { LevelData, Vec2 } from '../sim/types';
 import type { Simulation } from '../sim/simulation';
 import type { SimEvent } from '../sim/events';
 import { clamp } from '../sim/geometry';
+import { PLAYER_TUNING } from '../sim/player';
 import { Camera } from './camera';
 import { DebugDraw, lerp } from './debugDraw';
+import { Backdrop } from './backdrop';
+import { canvasTexture } from './backdrop/util';
+import { Roofs } from './world/roofs';
+import { StrokeView } from './world/strokes';
+import { Elf } from './actors/elf';
+import { SledActor } from './actors/sled';
+import { Particles } from './fx/particles';
+import { Bloom } from './fx/bloom';
+import { FpsMonitor, QUALITY, type QualityTier } from './quality';
 
 const ZOOM_FOOT = 1;
 const ZOOM_RIDE = 0.55;
@@ -14,11 +24,32 @@ const ZOOM_PLAN_MIN = 0.35;
 const ZOOM_PLAN_MAX = 2.5;
 const ZOOM_RATE = 4;
 
-/** Orchestriert die Darstellung: Kamera, Weltebene, später Hintergründe und Effekte. */
+/** Orchestriert die Darstellung: Hintergrund, Welt, Figuren, Effekte, Kamera, Qualität. */
 export class GameView {
   readonly camera = new Camera();
+  /** Welt in drei Ebenen mit gleicher Kamera: Bauten → Leuchtendes (mit Bloom) → Figuren. */
   private readonly world = new Container();
-  private readonly debug = new DebugDraw();
+  private readonly glowWorld = new Container();
+  private readonly frontWorld = new Container();
+  /** Unskalierter Träger der Leuchtebene – Bloom-Filter in Bildschirmkoordinaten. */
+  private readonly bloomHost = new Container();
+  private readonly roofLights = new Container();
+  private readonly roofLayer = new Container();
+  private readonly strokes = new StrokeView();
+  private readonly objects = new DebugDraw(false);
+  private readonly debug: DebugDraw | null;
+  private readonly elf = new Elf();
+  private readonly sled = new SledActor();
+  private readonly particles = new Particles();
+  private readonly backLayer = new Container();
+  private readonly frontLayer = new Container();
+  private readonly vignette: Sprite;
+  private readonly vignetteTex: Texture;
+  private readonly bloom: Bloom;
+  private readonly fps: FpsMonitor;
+  private tier: QualityTier;
+  private backdrop: Backdrop | null = null;
+  private roofs: Roofs | null = null;
   private level: LevelData | null = null;
   private lastTime = performance.now();
   /** In der Planungsphase: hat der Spieler selbst verschoben? Dann nicht mehr nachführen. */
@@ -26,19 +57,79 @@ export class GameView {
   /** Vom Spieler gewählter Zoom beim Planen (bleibt über Levels hinweg erhalten). */
   private planZoom = ZOOM_PLAN_DEFAULT;
   private planning = false;
+  private fpsLabel: HTMLElement | null = null;
+  private fpsAcc = { ms: 0, n: 0 };
+  private sledWasGrounded = true;
+  private sledAir = 0;
 
   constructor(private readonly app: Application) {
-    this.world.addChild(this.debug.container);
-    app.stage.addChild(this.world);
+    const params = new URLSearchParams(window.location.search);
+    this.debug = params.has('debug') ? new DebugDraw(true) : null;
+    const forced = params.get('q');
+    this.tier = forced === 'low' || forced === 'medium' ? forced : 'high';
+
+    this.world.addChild(this.roofLayer, this.objects.container);
+    this.glowWorld.addChild(this.roofLights, this.strokes.container, this.particles.container);
+    this.frontWorld.addChild(this.sled.container, this.elf.container);
+    if (this.debug) this.frontWorld.addChild(this.debug.container);
+    this.vignetteTex = canvasTexture(256, 256, (g) => {
+      const v = g.createRadialGradient(128, 128, 70, 128, 128, 182);
+      v.addColorStop(0, 'rgba(0,0,10,0)');
+      v.addColorStop(1, 'rgba(0,0,12,0.55)');
+      g.fillStyle = v;
+      g.fillRect(0, 0, 256, 256);
+    });
+    this.vignette = new Sprite(this.vignetteTex);
+    this.bloomHost.addChild(this.glowWorld);
+    app.stage.addChild(this.backLayer, this.world, this.bloomHost, this.frontWorld, this.frontLayer, this.vignette);
+
+    this.bloom = new Bloom(this.bloomHost);
+    if (this.debug) {
+      this.fpsLabel = document.createElement('div');
+      this.fpsLabel.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:9;font:12px monospace;color:#9fe8ff;background:#0008;padding:2px 6px;border-radius:4px;pointer-events:none';
+      document.body.appendChild(this.fpsLabel);
+    }
+    this.fps = new FpsMonitor((t) => this.applyQuality(t), this.tier);
+    this.applyQuality(this.tier);
+  }
+
+  get quality(): QualityTier { return this.tier; }
+
+  private applyQuality(t: QualityTier): void {
+    this.tier = t;
+    const q = QUALITY[t];
+    this.bloom.enabled = q.bloom;
+    this.particles.amount = q.particles;
+    const res = Math.min(window.devicePixelRatio || 1, q.resolution);
+    if (this.app.renderer.resolution !== res) {
+      this.app.renderer.resize(this.app.screen.width, this.app.screen.height, res);
+    }
   }
 
   resize(w: number, h: number): void {
     this.camera.resize(w, h);
+    this.backdrop?.resize(w, h);
+    this.vignette.width = w;
+    this.vignette.height = h;
+    this.bloomHost.filterArea = new Rectangle(0, 0, w, h);
   }
 
   async load(level: LevelData): Promise<void> {
     this.level = level;
-    this.debug.load(level);
+    this.objects.load(level);
+    this.debug?.load(level);
+
+    this.backdrop?.destroy();
+    this.backdrop = new Backdrop(level.theme, { w: this.camera.screenW, h: this.camera.screenH }, QUALITY[this.tier].particles);
+    this.backLayer.addChild(this.backdrop.container);
+    this.frontLayer.addChild(this.backdrop.front);
+
+    this.roofs?.destroy();
+    this.roofs = new Roofs(level);
+    this.roofLayer.addChild(this.roofs.container);
+    this.roofLights.addChild(this.roofs.lights);
+    this.particles.clear();
+
     this.camera.zoom = ZOOM_FOOT;
     this.camera.updateScale();
     this.camera.jump(level.spawn);
@@ -48,10 +139,20 @@ export class GameView {
   render(sim: Simulation, alpha: number, events: SimEvent[]): void {
     if (!this.level) return;
     const now = performance.now();
-    const dt = Math.min(0.1, (now - this.lastTime) / 1000);
+    const frameMs = now - this.lastTime;
+    const dt = Math.min(0.1, frameMs / 1000);
     this.lastTime = now;
+    this.fps.sample(frameMs);
+    if (this.fpsLabel) {
+      this.fpsAcc.ms += frameMs;
+      if (++this.fpsAcc.n >= 30) {
+        this.fpsLabel.textContent = `${Math.round((this.fpsAcc.n * 1000) / this.fpsAcc.ms)} fps · ${this.tier}`;
+        this.fpsAcc = { ms: 0, n: 0 };
+      }
+    }
+    const t = now / 1000;
 
-    for (const e of events) if (e.type === 'board' || e.type === 'launch' || e.type === 'crash') this.panned = false;
+    for (const e of events) this.react(e, sim);
 
     const cam = this.camera;
     this.planning = sim.mode === 'sled' && sim.phase === 'plan';
@@ -71,10 +172,83 @@ export class GameView {
     }
     cam.clampTo({ w: this.level.worldW, h: this.level.worldH });
 
-    this.world.scale.set(cam.scale);
-    this.world.position.set(-cam.left * cam.scale, -cam.top * cam.scale);
-    this.debug.render(sim, alpha);
-    void this.app;
+    for (const w of [this.world, this.glowWorld, this.frontWorld]) {
+      w.scale.set(cam.scale);
+      w.position.set(-cam.left * cam.scale, -cam.top * cam.scale);
+    }
+    this.backdrop?.update(cam.cx, cam.cy, t);
+    this.roofs?.update(t);
+    this.strokes.update(sim.ink.strokes, t);
+    this.objects.render(sim, alpha);
+    this.debug?.render(sim, alpha);
+    this.renderActors(sim, alpha, dt, t);
+    this.particles.update(dt);
+  }
+
+  private renderActors(sim: Simulation, alpha: number, dt: number, t: number): void {
+    const foot = sim.mode === 'foot';
+    this.elf.container.visible = foot;
+    this.sled.container.visible = !foot;
+    if (foot) {
+      const pl = sim.player;
+      const p = lerp(pl.prevPos, pl.pos, alpha);
+      this.elf.container.position.set(p.x + PLAYER_TUNING.size.w / 2, p.y + PLAYER_TUNING.size.h);
+      this.elf.update({ vx: pl.vel.x, vy: pl.vel.y, grounded: pl.grounded, facing: pl.facing }, dt, t);
+      return;
+    }
+    const s = sim.sled;
+    const riding = sim.phase === 'ride';
+    const p = riding ? lerp(s.prevPos, s.pos, alpha) : s.pos;
+    this.sled.container.position.set(p.x, p.y);
+    this.sled.update(s.angle, riding ? s.speed : 0, dt, t);
+    if (!riding) { this.sledWasGrounded = true; return; }
+
+    // Funken hinter den Kufen, Stärke ~ Tempo
+    const grounded = s.grounded;
+    if (grounded && s.speed > 120) {
+      const k = clamp(s.speed / 1600, 0, 1);
+      const n = Math.max(1, Math.round(dt * 60));
+      // Berührpunkt unter dem hinteren Kufen-Ende (Normale zeigt zur Linie, also nach unten)
+      const a = s.angle;
+      const sgn = Math.cos(a) >= 0 ? 1 : -1;
+      const at = { x: s.rear.x - Math.sin(a) * 5 * sgn, y: s.rear.y + Math.cos(a) * 5 * sgn };
+      for (let i = 0; i < n; i++) this.particles.sparks(at, s.vel, k);
+    }
+    if (!grounded) this.sledAir += dt;
+    else {
+      if (!this.sledWasGrounded && this.sledAir > 0.15) {
+        this.sled.land(this.sledAir);
+        this.particles.snowPuff({ x: p.x, y: p.y + 5 }, Math.min(1.4, 0.4 + this.sledAir));
+      }
+      this.sledAir = 0;
+    }
+    this.sledWasGrounded = grounded;
+  }
+
+  private react(e: SimEvent, sim: Simulation): void {
+    const fx = this.particles;
+    switch (e.type) {
+      case 'jump': {
+        this.elf.jump();
+        const pl = sim.player;
+        fx.snowPuff({ x: pl.center.x, y: pl.pos.y + PLAYER_TUNING.size.h }, 0.35);
+        break;
+      }
+      case 'land':
+        this.elf.land(e.speed);
+        if (e.speed > 250) fx.snowPuff(e.pos, clamp(e.speed / 1000, 0.3, 1.4));
+        break;
+      case 'gift': fx.burst(e.pos); break;
+      case 'spring': fx.burst(e.pos, 0x40e0ff); break;
+      case 'checkpoint': fx.burst(e.pos, 0x40ff90); break;
+      case 'crash': fx.snowPuff(e.pos, 1.5); fx.burst(e.pos, 0xff4d5e); break;
+      case 'board': this.panned = false; fx.snowPuff(sim.level.stations[e.area].pos, 0.8); break;
+      case 'launch': this.panned = false; break;
+      case 'arrive': fx.snowPuff(e.pos, 0.8); break;
+      case 'win': this.elf.cheer(); fx.confetti({ x: sim.level.chimney.x, y: sim.level.chimney.y - 60 }); break;
+      default: break;
+    }
+    if (e.type === 'crash') this.panned = false;
   }
 
   screenToWorld(x: number, y: number): Vec2 {
@@ -109,6 +283,12 @@ export class GameView {
   }
 
   destroy(): void {
+    this.backdrop?.destroy();
+    this.roofs?.destroy();
+    this.particles.destroy();
+    this.vignetteTex.destroy(true);
     this.world.destroy({ children: true });
+    this.bloomHost.destroy({ children: true });
+    this.frontWorld.destroy({ children: true });
   }
 }
