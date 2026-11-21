@@ -7,7 +7,6 @@ steigst du in den Schlitten. **Steuern kannst du ihn nicht, du zeichnest ihm
 die Piste.**
 
 > Konzept: `../brainstorming/konzept-schlittenfahrer.md` ·
-> Design-Spec: [`docs/superpowers/specs/2026-11-21-schlittenfahrer-v1-design.md`](docs/superpowers/specs/2026-11-21-schlittenfahrer-v1-design.md) ·
 > Technik: [`docs/TECHNIK.md`](docs/TECHNIK.md)
 
 ## So spielst du
