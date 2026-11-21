@@ -79,6 +79,42 @@ Die Web-Version ist eine installierbare App (PWA). Am Handy die Seite öffnen,
 dann „Zum Startbildschirm hinzufügen“ wählen. Danach startet sie wie eine App
 im Vollbild und läuft auch ohne Internet.
 
+## Levels bauen (Editor)
+
+`npm run dev` starten, auf dem Titelbildschirm **Editor** wählen. Auf der
+veröffentlichten Seite gibt es den Editor nur mit `?editor` (dann ohne
+Speichern ins Projekt, nur Export/Import als Datei).
+
+1. **Neues Level** anlegen oder ein vorhandenes öffnen. Ein angefangener
+   Entwurf wird im Browser gemerkt und lässt sich fortsetzen.
+2. **Bauen:** Baustein links wählen und in die Welt tippen (Umschalt: mehrere
+   nacheinander). Elemente antippen und ziehen, an den weißen Griffen die Größe,
+   die Bahn von Glocke und Krähe oder die Richtung einer Feder ändern. Feinwerte
+   stehen rechts im Eigenschaften-Feld. **Level** (oben rechts) öffnet die
+   Profi-Einstellungen: Name, ID, Weltgröße, Polarlicht, Tinte je Abschnitt.
+3. **Probespielen** (wahlweise ab einer Station). Jede geschaffte Fahrt wird als
+   Lösung ihres Abschnitts gemerkt; unten zeigt „Lösung“, welche Abschnitte
+   gelöst sind. **Tinte vorschlagen** setzt die Tinte auf das 1,5-Fache deiner
+   Lösung.
+4. **Ins Spiel speichern** schreibt `src/levels/NN-<id>.json` und
+   `src/levels/solutions/<id>.json`. Gespeichert wird nur, wenn deine Lösung
+   noch ankommt; sonst nennt der Editor den Grund. Danach lädt die Seite neu,
+   der Editor ist wieder offen, und das Level steht am Ende der Levelauswahl.
+   Committen und pushen, fertig.
+
+| Aktion | Maus/Tastatur | Touch |
+|---|---|---|
+| Auswählen, verschieben | Klicken, ziehen | Antippen, ziehen |
+| Kamera verschieben | Leertaste + ziehen, mittlere Taste, ins Leere ziehen | ins Leere ziehen, zwei Finger |
+| Zoomen | Mausrad, + / − | zwei Finger |
+| Ohne Raster ziehen | Alt halten | Raster-Knopf |
+| Rückgängig / Wiederholen | Strg+Z / Strg+Y | Knöpfe oben |
+| Duplizieren / Löschen | Strg+D / Entf | Knöpfe rechts |
+| Feinschieben | Pfeiltasten (Umschalt: 1 px) | – |
+| Probespielen / Speichern | T / Strg+S | Knöpfe oben |
+
+Ändert sich ein vorhandenes Level, beginnen Sterne und Rekorde dafür neu.
+
 ## Entwicklung
 
 ```bash
@@ -90,12 +126,12 @@ npm run typecheck    # tsc --noEmit (strict)
 
 Nützlich beim Entwickeln:
 
-- `?debug`: Kollisionsrahmen, FPS und Qualitätsstufe einblenden. In der
-  Konsole kopiert `copy(__exportStrokes())` die gezeichneten Linien im
-  Lösungsformat.
+- `?debug`: Kollisionsrahmen, FPS und Qualitätsstufe einblenden. Notlösung
+  ohne Editor: In der Konsole kopiert `copy(__exportStrokes())` die
+  gezeichneten Linien im Lösungsformat.
 - `?q=low` / `?q=medium`: eine Qualitätsstufe erzwingen.
-- **Neues Level:** JSON nach `src/levels/` legen und eine Lösung nach
-  `src/levels/solutions/<id>.json` (im Spiel mit `?debug` zeichnen und exportieren).
+- **Neues Level:** am einfachsten mit dem Editor (siehe oben). Von Hand: JSON
+  nach `src/levels/` und eine Lösung nach `src/levels/solutions/<id>.json`.
   Ohne Lösung schlägt `npm test` fehl, und damit auch das Veröffentlichen.
 
 ## Builds und Veröffentlichung

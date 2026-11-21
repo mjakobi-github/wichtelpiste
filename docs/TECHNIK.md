@@ -14,6 +14,7 @@ src/
   ui/       HTML/CSS über dem Canvas: HUD, Werkzeugleiste, Bildschirme, Hinweise, Icons
   app/      Verdrahtung (App), Bildschirm-Fluss, Fortschritt (localStorage)
   levels/   Level-JSON (Format v1), Schema-Prüfung, Lösungen + Lösbarkeitstest
+  editor/   Level-Editor (per import() nachgeladen): Dokument, Griffe, Prüfungen, UI
   assets/   SVG-Teile (Elfe, Schlitten, Objekte)
 ```
 
@@ -82,7 +83,10 @@ die Lösung, fährt los und verlangt: Ankunft in der Landezone (bzw. Sieg am
 Schornstein), Budget eingehalten, keine Verbotszone. Der Test simuliert mit
 demselben Takt wie das Spiel (`Loop.STEP`). **Jedes neue Level braucht eine
 Lösungsdatei**, sonst schlägt der Test fehl und GitHub Pages wird nicht aktualisiert. Lösungen lassen sich im
-Spiel mit `?debug` zeichnen und mit `copy(__exportStrokes())` exportieren.
+Editor beim Probespielen aufzeichnen (siehe §9) oder im Spiel mit `?debug`
+zeichnen und mit `copy(__exportStrokes())` exportieren. Die Prüfung selbst ist
+`checkSolution()` in `levels/solutionCheck.ts`; Test und Editor nutzen sie
+gemeinsam.
 
 ## 4. Darstellung (`src/view`)
 
@@ -136,6 +140,8 @@ Ist die Seite unsichtbar, wird der AudioContext angehalten.
   `clientsClaim`, Workbox legt alles vorab in den Cache, damit es nach dem
   ersten Besuch offline läuft). Icons erzeugt `@vite-pwa/assets-generator` aus
   `public/icon.svg` (`pwa-assets.config.ts`). Größe < 1 MB.
+- Der Editor ist ein eigener Chunk (`import()` aus `app.ts`); das Spiel-Bundle
+  wächst dadurch nur um den Einstieg.
 - `npm run build:file` → `dist-file/index.html`: alles in einer Datei, ohne PWA,
   startet per `file://`.
 - `.github/workflows/deploy.yml`: Push auf `main` → `npm ci`, `npm test`,
@@ -146,4 +152,31 @@ Ist die Seite unsichtbar, wird der AudioContext angehalten.
 `npm test` (Vitest, jsdom). Abgedeckt sind Geometrie, Spieler, Schlitten,
 Tinte, Elemente, Simulation (Ereignisse, Crash-Regeln, Ersatzplanung),
 Wertung, Fortschritt, Takt, Gesten, Qualitätsstufen, Parallaxe, Erschütterung,
-Bildschirm-Fluss, Hinweise, Level-Schema und die Lösbarkeit aller Levels.
+Bildschirm-Fluss, Hinweise, Level-Schema, die Lösbarkeit aller Levels und die
+reine Logik des Editors (`src/editor/*.test.ts`).
+
+## 9. Editor (`src/editor`)
+
+| Datei | Inhalt |
+|---|---|
+| `doc.ts` | Elemente adressieren (`ElementRef`), hinzufügen, verschieben, löschen, duplizieren, Stationen umnummerieren (Station *i* ↔ `areas[i]` ↔ `dismounts[i]`) – alles rein, Eingabe bleibt unverändert |
+| `history.ts` | Rückgängig/Wiederholen über Level-Stände (100 Schritte) |
+| `handles.ts` | Umrisse, Griffe (Rechteck, Pendel, Kreis, Linie, Feder, Höhe), Trefferprüfung (Griffe 22 Bildschirm-px), Griff-Ziehen mit Raster |
+| `pointer.ts` | Zeiger-Zustandsautomat → Editor-Aktionen; ein Ziehen = ein Verlaufsschritt; zwei Finger = Zoom/Verschieben |
+| `fields.ts` | Eigenschaften- und Profi-Felder (Anzeige ↔ Levelwerte, z. B. Grad ↔ rad) |
+| `checks.ts` | Prüfliste (Format-Fehler aus `validateLevel`, Warnungen) und Tinten-Vorschlag |
+| `recorder.ts` | Lösung aus Probefahrten aufzeichnen (bei `arrive`/`win` des gefahrenen Abschnitts) |
+| `draft.ts` | Entwurf in `localStorage['wichtelpiste.editor.draft.v1']` |
+| `exchange.ts` | Export/Import (`{ format: 'wichtelpiste-level', level, solution }` oder nackte Level-Datei) |
+| `savePlan.ts` | Prüft eine Speicher-Anfrage (Schema, ID, Lösbarkeit, Dateiname) und plant die Schreibvorgänge |
+| `editor.ts`, `overlay.ts`, `panels.ts` | Steuerung, Pixi-Editor-Ebene, HTML-Leisten |
+
+- **Darstellung:** `GameView.editMode` (freie Kamera, Bahnen sichtbar),
+  `showLevel()` baut die Welt nach Änderungen neu (Kulisse nur bei neuem
+  Theme), `renderStill()` zeichnet eine ungestartete `Simulation`.
+- **Speichern:** Vite-Plugin in `vite.config.ts` (nur `serve`):
+  `POST /__editor/save` → `planSave()` → schreibt nur innerhalb von
+  `src/levels/`. Vite lädt danach neu; ein `sessionStorage`-Merker öffnet den
+  Editor wieder.
+- **Probespielen:** `App.startTest()` spielt das Level aus dem Speicher, ohne
+  Fortschritt zu schreiben; Pause und Sieg führen zurück in den Editor.
