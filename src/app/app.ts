@@ -12,6 +12,7 @@ import { Hud } from '../ui/hud';
 import { Toolbar, type ToolAction } from '../ui/toolbar';
 import { TouchControls } from '../ui/touchControls';
 import { RotateHint } from '../ui/rotateHint';
+import { HintView, activeHint } from '../ui/hints';
 import { renderTitle } from '../ui/screens/title';
 import { renderLevelSelect } from '../ui/screens/levelSelect';
 import { renderPause } from '../ui/screens/pause';
@@ -39,6 +40,7 @@ export class App {
   private toolbar!: Toolbar;
   private touch!: TouchControls;
   private overlay!: HTMLElement;
+  private hints!: HintView;
 
   constructor(private readonly stageHost: HTMLElement, private readonly uiRoot: HTMLElement) {
     let store: Storage | null = null;
@@ -54,6 +56,7 @@ export class App {
     this.hud = new Hud(this.uiRoot);
     this.toolbar = new Toolbar(this.uiRoot, (t) => this.setTool(t), (a) => this.action(a));
     this.touch = new TouchControls(this.uiRoot, this.input);
+    this.hints = new HintView(this.uiRoot);
     this.toolbar.fullscreenBtn.classList.toggle('hidden', !fullscreenSupported());
     this.overlay = document.createElement('div');
     this.overlay.className = 'overlay';
@@ -87,6 +90,7 @@ export class App {
   private hideGameUi(): void {
     this.hud.show(false);
     this.hud.hideBanner();
+    this.hints.show(null);
     this.touch.show(false);
     this.toolbar.setPlanning(false, false);
     this.toolbar.setReplan(false);
@@ -148,6 +152,7 @@ export class App {
     this.go('pause');
     this.send({ type: 'strokeEnd' });
     this.hud.hideBanner();
+    this.hints.show(null);
     this.showOverlay((el) => renderPause(el, audio.muted, {
       resume: () => this.resume(),
       restart: () => void this.startLevel(this.levelIdx, 'restart'),
@@ -267,5 +272,9 @@ export class App {
     this.touch.show(sim.mode === 'foot');
     this.toolbar.setReplan(sim.canReplan);
     this.hud.update(sim, this.levelIdx + 1);
+    const foot = sim.mode === 'foot';
+    const at = foot ? sim.player.center : sim.level.stations[sim.activeArea].pos;
+    const strokes = sim.ink.strokes.filter((s) => s.area === sim.activeArea).length;
+    this.hints.show(activeHint(sim.level.hints, at, sim.mode, sim.phase, strokes));
   }
 }

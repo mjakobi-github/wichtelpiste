@@ -26,6 +26,7 @@ const PATHS = {
   right: `<path d="M9 5l8 7-8 7z" fill="currentColor"/>`,
   jump: `<path ${S} d="M12 20V7M6 12l6-6 6 6M5 3h14"/>`,
   rotate: `<rect ${S} x="7" y="2" width="10" height="20" rx="2"/><path ${S} d="M11 18h2"/>`,
+  finger: `<path d="M9 11V4.5a1.5 1.5 0 0 1 3 0V10l5.6 1.2a2 2 0 0 1 1.5 2.3l-1 5.2A3 3 0 0 1 15.2 21H11a3 3 0 0 1-2.4-1.2L5 15a1.6 1.6 0 0 1 2.4-2.1L9 14.5z" fill="#f4f8ff" stroke="#2a3a5e" stroke-width="1.3" stroke-linejoin="round"/>`,
   ink: `<path ${S} d="M4 18c4-8 8 4 16-6"/>`,
 } as const;
 

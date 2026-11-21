@@ -193,3 +193,29 @@ button.hero { font-size: 26px; padding: 12px 36px; border-radius: 18px; animatio
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
 }
+
+/* ---------------------------------------------------------------- Hinweise */
+.hint {
+  position: absolute; bottom: calc(108px + var(--safe-b)); left: 50%; transform: translate(-50%, 8px);
+  max-width: min(70vw, 460px); padding: 10px 18px; border-radius: 16px; text-align: center;
+  background: var(--glass-strong); border: 1px solid rgba(255, 210, 122, 0.55); box-shadow: 0 0 18px rgba(255, 210, 122, 0.35);
+  font-size: 18px; font-weight: 600; opacity: 0; transition: opacity 250ms, transform 250ms;
+}
+.hint.visible { opacity: 1; transform: translate(-50%, 0); }
+.hint-hand { position: absolute; width: 56px; height: 56px; display: none; filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.6)); }
+.hint-hand .icon { width: 100%; height: 100%; }
+.hint-hand.visible { display: block; }
+.g-move { left: calc(118px + var(--safe-l)); bottom: calc(8px + var(--safe-b)); animation: tap 1s ease-in-out infinite; }
+.g-jump { right: calc(30px + var(--safe-r)); bottom: calc(8px + var(--safe-b)); animation: tap 1s ease-in-out infinite; }
+.g-launch { right: calc(60px + var(--safe-r)); bottom: calc(0px + var(--safe-b)); animation: tap 1s ease-in-out infinite; }
+.g-swipe { left: 30%; top: 28%; animation: swipe 2s ease-in-out infinite; }
+.g-bounce { left: calc(50% - 28px); bottom: calc(160px + var(--safe-b)); animation: bounce 1s ease-in-out infinite; }
+@keyframes tap { 0%, 100% { transform: translate(8px, 10px); } 45% { transform: translate(0, 0) scale(0.9); } }
+@keyframes swipe {
+  0% { transform: translate(0, 0); opacity: 0; }
+  10% { opacity: 1; }
+  50% { transform: translate(18vw, 12vh); }
+  80% { transform: translate(34vw, 4vh); opacity: 1; }
+  100% { transform: translate(34vw, 4vh); opacity: 0; }
+}
+@keyframes bounce { 50% { transform: translateY(-12px); } }
