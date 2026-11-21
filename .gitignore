@@ -1,0 +1,7 @@
+node_modules/
+dist/
+dist-file/
+*.log
+.DS_Store
+
+.superpowers/

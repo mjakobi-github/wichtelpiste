@@ -1,0 +1,316 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0b1d3a;
+  touch-action: none;            /* kein Scrollen/Zoomen durch Touch-Gesten */
+  -webkit-user-select: none;
+  user-select: none;
+  overscroll-behavior: none;
+  font-family: system-ui, sans-serif;
+}
+
+#game {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ---------- Touch-Steuerung ---------- */
+
+#touch { display: none; }
+
+@media (pointer: coarse) {
+  #touch { display: block; }
+}
+
+.cluster {
+  position: fixed;
+  bottom: 24px;
+  display: flex;
+  gap: 16px;
+  z-index: 10;
+}
+
+.cluster-left {
+  left: 24px;
+  left: max(24px, env(safe-area-inset-left));
+}
+
+.cluster-right {
+  right: 24px;
+  right: max(24px, env(safe-area-inset-right));
+}
+
+.tbtn {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(4px);
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.05s, background 0.05s;
+}
+
+.tbtn:active {
+  transform: scale(0.92);
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.tbtn-big { width: 96px; height: 96px; }
+
+/* Pfeile in die Buttons zeichnen */
+#btn-left::before, #btn-right::before {
+  content: '';
+  display: block;
+  width: 26px;
+  height: 26px;
+  margin: auto;
+  border-left: 5px solid rgba(255,255,255,0.85);
+  border-bottom: 5px solid rgba(255,255,255,0.85);
+}
+
+#btn-left::before  { transform: rotate(45deg)  translate(4px, -4px); }
+#btn-right::before { transform: rotate(-135deg) translate(4px, -4px); }
+
+#btn-jump::before {
+  content: '⤒';
+  display: block;
+  margin: auto;
+  font-size: 34px;
+  font-weight: bold;
+  color: rgba(255,255,255,0.85);
+  line-height: 1;
+}
+
+/* ---------- Werkzeug-Buttons (Zeichnen/Verschieben) ---------- */
+
+#tools {
+  position: fixed;
+  top: 44px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 15;
+}
+
+.toolbtn {
+  width: 52px;
+  height: 52px;
+  font-size: 22px;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  background: rgba(10, 20, 40, 0.55);
+  cursor: pointer;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.1s, background 0.1s;
+}
+
+.toolbtn.active {
+  border-color: #f6c542;
+  background: rgba(246, 197, 66, 0.25);
+  box-shadow: 0 0 10px rgba(246, 197, 66, 0.35);
+}
+
+.toolbtn-danger {
+  border-color: rgba(230, 57, 75, 0.5);
+  background: rgba(230, 57, 75, 0.2);
+}
+
+.toolbtn-danger:active {
+  background: rgba(230, 57, 75, 0.45);
+}
+
+/* ---------- LOS!-Button (planungsphase des Schlittens) ---------- */
+
+#btn-launch {
+  display: none;
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  bottom: max(28px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  padding: 14px 34px;
+  font-size: 20px;
+  font-weight: bold;
+  color: #2b1600;
+  background: linear-gradient(#ffd86b, #f6a723);
+  border: 2px solid #b57a10;
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  z-index: 20;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+}
+
+#btn-launch:active { transform: translateX(-50%) scale(0.95); }
+
+#btn-launch.visible { display: block; animation: launch-pulse 1.2s ease-in-out infinite; }
+
+@keyframes launch-pulse {
+  0%, 100% { box-shadow: 0 4px 14px rgba(0,0,0,0.4), 0 0 0 0 rgba(246,167,35,0.5); }
+  50%      { box-shadow: 0 4px 14px rgba(0,0,0,0.4), 0 0 0 12px rgba(246,167,35,0); }
+}
+
+#btn-launch.hidden, #btn-launch.hidden.visible { display: none; }
+
+/* ---------- Level-geschafft-Overlay ---------- */
+
+#overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 10, 25, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 30;
+}
+
+#overlay.hidden { display: none; }
+
+#overlay .panel {
+  background: rgba(20, 32, 60, 0.97);
+  border: 2px solid rgba(246, 197, 66, 0.5);
+  border-radius: 18px;
+  padding: 28px 44px;
+  text-align: center;
+  color: #eef2ff;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+}
+
+#overlay h2 { font-size: 22px; margin-bottom: 6px; }
+
+#overlay-stars {
+  font-size: 46px;
+  letter-spacing: 8px;
+  margin: 12px 0 4px;
+}
+
+#overlay-sub { color: rgba(238,242,255,0.7); margin-bottom: 18px; }
+
+#btn-again {
+  padding: 12px 30px;
+  font-size: 17px;
+  font-weight: bold;
+  color: #0b1d3a;
+  background: linear-gradient(#7be3a0, #2f9e63);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#btn-again:active { transform: scale(0.95); }
+
+.panelbtns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+.panelbtns button {
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: bold;
+  color: #0b1d3a;
+  background: linear-gradient(#7be3a0, #2f9e63);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.panelbtns button:active { transform: scale(0.95); }
+.panelbtns #btn-next { background: linear-gradient(#ffd66b, #f6a723); }
+.panelbtns #btn-menu { background: linear-gradient(#a5c4ff, #5c7fd6); }
+
+/* ---------- Menü-Knopf oben rechts ---------- */
+
+#btn-menu-top {
+  position: fixed;
+  top: 8px;
+  right: 76px;
+  z-index: 25;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  line-height: 1;
+  color: #eef2ff;
+  background: rgba(20, 32, 60, 0.75);
+  border: 1px solid rgba(246, 197, 66, 0.4);
+  border-radius: 10px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#btn-menu-top:active { transform: scale(0.92); }
+
+/* ---------- Level-Auswahl ---------- */
+
+#menu {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(120% 120% at 50% 0%, #14264a 0%, #0b1d3a 60%, #071228 100%);
+  z-index: 40;
+}
+
+#menu.hidden { display: none; }
+
+.panel-menu {
+  background: rgba(20, 32, 60, 0.97);
+  border: 2px solid rgba(246, 197, 66, 0.5);
+  border-radius: 18px;
+  padding: 30px 36px;
+  text-align: center;
+  color: #eef2ff;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+  max-width: min(92vw, 480px);
+}
+
+.panel-menu h1 { font-size: 28px; margin: 0 0 6px; }
+.panel-menu .sub { color: rgba(238, 242, 255, 0.7); margin: 0 0 20px; font-size: 14px; }
+
+#menu-levels { display: flex; flex-direction: column; gap: 10px; }
+
+.levelbtn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  font-size: 16px;
+  color: #eef2ff;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.levelbtn:hover { background: rgba(255, 255, 255, 0.13); }
+.levelbtn:active { transform: scale(0.98); }
+
+.levelbtn .lv-idx {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: #0b1d3a;
+  background: linear-gradient(#ffd66b, #f6a723);
+  border-radius: 999px;
+}
+
+.levelbtn .lv-name { flex: 1 1 auto; font-weight: 600; }
+.levelbtn .lv-stars { flex: 0 0 auto; font-size: 14px; letter-spacing: 2px; }

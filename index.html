@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <!-- iOS: Randlos + stabile Skalierung, kein Zoom beim Doppeltippen -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1d3a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Schlittenfahrer – Testlevel 1</title>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- Touch-Steuerung (nur per CSS auf Touch-Geräten sichtbar) -->
+  <div id="touch">
+    <div class="cluster cluster-left">
+      <button id="btn-left"  class="tbtn" aria-label="Nach links"></button>
+      <button id="btn-right" class="tbtn" aria-label="Nach rechts"></button>
+    </div>
+    <div class="cluster cluster-right">
+      <button id="btn-jump" class="tbtn tbtn-big" aria-label="Springen"></button>
+    </div>
+  </div>
+
+  <!-- Werkzeuge (Zeichnen/Verschieben) -->
+  <div id="tools">
+    <button id="tool-draw"   class="toolbtn active" aria-label="Zeichnen (Taste Z)"        title="Zeichnen (Z)">✏️</button>
+    <button id="tool-boost"  class="toolbtn"        aria-label="Speedtinte (Taste B)"      title="🚀 Speedtinte (B) – knapper rarer Tintenpool">🚀</button>
+    <button id="tool-eraser" class="toolbtn"        aria-label="Radierer (Taste E)"       title="Radierer (E)">🧽</button>
+    <button id="tool-pan"    class="toolbtn"        aria-label="Verschieben (Taste P)"    title="Verschieben (P)">✋</button>
+    <button id="tool-trash"  class="toolbtn toolbtn-danger" aria-label="Alles löschen (Taste Backspace)" title="Alles löschen (Backspace)">🗑️</button>
+  </div>
+
+  <!-- LOS!-Button: startet die Schlittenfahrt nach der Planungsphase -->
+  <button id="btn-launch" aria-label="Losfahren">🛷 LOS!</button>
+
+  <!-- Menü-Knopf oben rechts -->
+  <button id="btn-menu-top" aria-label="Menü" title="Menü (Esc)">☰</button>
+
+  <!-- Level-geschafft-Overlay -->
+  <div id="overlay" class="hidden">
+    <div class="panel">
+      <h2>🛷🚚 Level geschafft!</h2>
+      <div id="overlay-stars"></div>
+      <p id="overlay-sub"></p>
+      <div class="panelbtns">
+        <button id="btn-again">🔁 Nochmal</button>
+        <button id="btn-next">➡️ Weiter</button>
+        <button id="btn-menu">🏠 Menü</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Level-Auswahl -->
+  <div id="menu" class="hidden">
+    <div class="panel panel-menu">
+      <h1>🛷 Schlittenfahrer</h1>
+      <p class="sub">Zeichne Pisten, sammle Geschenke, liefere am Schornstein ab!</p>
+      <div id="menu-levels"></div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
