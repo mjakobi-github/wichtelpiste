@@ -1,6 +1,7 @@
 import { LEVELS } from '../levels';
 import { Simulation } from '../sim/simulation';
 import type { Command, SimEvent, WinResult } from '../sim/events';
+import type { Theme } from '../sim/types';
 import { Loop } from '../engine/loop';
 import { Input } from '../engine/input';
 import { Gestures, type ToolName } from '../engine/gestures';
@@ -10,14 +11,23 @@ import { GameView } from '../view/gameView';
 import { Hud } from '../ui/hud';
 import { Toolbar, type ToolAction } from '../ui/toolbar';
 import { TouchControls } from '../ui/touchControls';
+import { RotateHint } from '../ui/rotateHint';
+import { renderTitle } from '../ui/screens/title';
+import { renderLevelSelect } from '../ui/screens/levelSelect';
+import { renderPause } from '../ui/screens/pause';
+import { renderWin } from '../ui/screens/win';
 import { Progress } from './progress';
+import { nextScreen, type Screen, type ScreenAction } from './flow';
 import { fullscreenSupported, toggleFullscreen } from '../ui/fullscreen';
 
-type Screen = 'menu' | 'play' | 'paused' | 'won';
+export { nextScreen, formatInk, type Screen } from './flow';
+
+/** Kulisse für Titel und Levelauswahl. */
+const MENU_THEME: Theme = { seed: 24, auroraHue: 150 };
 
 /** Verdrahtet Simulation, Darstellung, Oberfläche und Audio. */
 export class App {
-  private screen: Screen = 'menu';
+  private screen: Screen = 'title';
   private levelIdx = 0;
   private sim: Simulation | null = null;
   private tool: ToolName = 'draw';
@@ -46,8 +56,9 @@ export class App {
     this.touch = new TouchControls(this.uiRoot, this.input);
     this.toolbar.fullscreenBtn.classList.toggle('hidden', !fullscreenSupported());
     this.overlay = document.createElement('div');
-    this.overlay.className = 'overlay hidden';
+    this.overlay.className = 'overlay';
     this.uiRoot.appendChild(this.overlay);
+    new RotateHint(this.uiRoot, () => { if (this.screen === 'play') this.openPause(); });
 
     this.input.attach();
     this.input.onKey = (code, e) => this.key(code, e);
@@ -63,31 +74,44 @@ export class App {
     });
 
     new Loop((dt) => this.update(dt), (alpha) => this.render(alpha)).start();
-    this.openMenu();
+    this.openTitle();
   }
 
   // ------------------------------------------------------------ Ablauf
 
-  private openMenu(): void {
-    this.screen = 'menu';
-    this.sim = null;
+  private go(a: ScreenAction): void {
+    this.screen = nextScreen(this.screen, a);
+  }
+
+  /** Alles Spiel-UI aus (Menüs). */
+  private hideGameUi(): void {
     this.hud.show(false);
+    this.hud.hideBanner();
     this.touch.show(false);
     this.toolbar.setPlanning(false, false);
     this.toolbar.setReplan(false);
     this.toolbar.setPauseVisible(false);
-    const items = LEVELS.map((lv, i) => {
-      const p = this.progress.get(lv);
-      const stars = '★'.repeat(p.stars) + '☆'.repeat(3 - p.stars);
-      const best = p.bestInk === null ? '' : ` · 🏆 ${p.bestInk}`;
-      return `<button data-i="${i}">${i + 1}. ${lv.name}<br><small>${stars}${best}</small></button>`;
-    }).join('');
-    this.showOverlay(`<div class="panel"><h1>🛷 Schlittenfahrer</h1><div class="levels">${items}</div></div>`);
-    this.overlay.querySelectorAll<HTMLElement>('[data-i]').forEach((b) =>
-      b.addEventListener('click', () => void this.startLevel(Number(b.dataset.i))));
   }
 
-  private async startLevel(idx: number): Promise<void> {
+  private toMenu(): void {
+    this.sim = null;
+    this.hideGameUi();
+    this.view.showScenery(MENU_THEME);
+  }
+
+  private openTitle(): void {
+    this.screen = 'title';
+    this.toMenu();
+    this.showOverlay((el) => renderTitle(el, () => this.openLevels('start')));
+  }
+
+  private openLevels(a: ScreenAction): void {
+    this.go(a);
+    this.toMenu();
+    this.showOverlay((el) => renderLevelSelect(el, LEVELS, (lv) => this.progress.get(lv), (i) => void this.startLevel(i, 'pickLevel'), () => this.openTitle()));
+  }
+
+  private async startLevel(idx: number, a: ScreenAction): Promise<void> {
     this.levelIdx = idx;
     const level = LEVELS[idx];
     this.sim = new Simulation(level);
@@ -97,54 +121,55 @@ export class App {
     this.hud.show(true);
     this.toolbar.setPauseVisible(true);
     this.setTool('draw');
-    this.screen = 'play';
+    this.go(a);
+    this.hud.banner(`${idx + 1}. ${level.name}`, 'Sammle die Geschenke und bring sie zum Schornstein');
   }
 
   private showWin(r: WinResult): void {
-    this.screen = 'won';
+    this.go('win');
     const lv = LEVELS[this.levelIdx];
     const rec = this.progress.record(lv, r);
-    const best = this.progress.get(lv).bestInk;
-    const next = this.levelIdx + 1 < LEVELS.length;
-    this.toolbar.setPlanning(false, false);
-    this.toolbar.setReplan(false);
-    this.toolbar.setPauseVisible(false);
-    this.touch.show(false);
-    this.showOverlay(`<div class="panel"><h2>Level geschafft!</h2>
-      <div style="font-size:40px">${'★'.repeat(r.stars)}${'☆'.repeat(3 - r.stars)}</div>
-      <p>${r.gifts} / ${r.giftTotal} Geschenke · Tinte ${r.inkUsed}${rec.newBestInk ? ' · <b>Neuer Rekord!</b>' : ''}${best !== null ? ` · 🏆 ${best}` : ''}</p>
-      <div class="row"><button data-a="again">Nochmal</button>${next ? '<button data-a="next">Weiter</button>' : ''}<button data-a="menu">Levelauswahl</button></div></div>`);
-    this.overlay.querySelector('[data-a="again"]')?.addEventListener('click', () => void this.startLevel(this.levelIdx));
-    this.overlay.querySelector('[data-a="next"]')?.addEventListener('click', () => void this.startLevel(this.levelIdx + 1));
-    this.overlay.querySelector('[data-a="menu"]')?.addEventListener('click', () => this.openMenu());
+    this.hideGameUi();
+    this.hud.show(true);
+    this.showOverlay((el) => renderWin(el, {
+      result: r,
+      newBestInk: rec.newBestInk,
+      bestInk: this.progress.get(lv).bestInk,
+      hasNext: this.levelIdx + 1 < LEVELS.length,
+    }, {
+      again: () => void this.startLevel(this.levelIdx, 'again'),
+      next: () => void this.startLevel(this.levelIdx + 1, 'next'),
+      levels: () => this.openLevels('toLevels'),
+    }));
   }
 
   private openPause(): void {
     if (this.screen !== 'play') return;
-    this.screen = 'paused';
+    this.go('pause');
     this.send({ type: 'strokeEnd' });
-    this.showOverlay(`<div class="panel"><h2>Pause</h2>
-      <div class="row"><button data-a="resume">▶ Weiter</button><button data-a="restart">↻ Neu starten</button><button data-a="menu">Levelauswahl</button></div></div>`);
-    this.overlay.querySelector('[data-a="resume"]')?.addEventListener('click', () => this.resume());
-    this.overlay.querySelector('[data-a="restart"]')?.addEventListener('click', () => void this.startLevel(this.levelIdx));
-    this.overlay.querySelector('[data-a="menu"]')?.addEventListener('click', () => this.openMenu());
+    this.hud.hideBanner();
+    this.showOverlay((el) => renderPause(el, audio.muted, {
+      resume: () => this.resume(),
+      restart: () => void this.startLevel(this.levelIdx, 'restart'),
+      levels: () => this.openLevels('toLevels'),
+      toggleSound: () => { audio.muted = !audio.muted; return audio.muted; },
+    }));
   }
 
   private resume(): void {
-    if (this.screen !== 'paused') return;
+    if (this.screen !== 'pause') return;
     this.input.reset();
     this.hideOverlay();
-    this.screen = 'play';
+    this.go('resume');
   }
 
-  private showOverlay(html: string): void {
-    this.overlay.innerHTML = html;
-    this.overlay.classList.remove('hidden');
+  private showOverlay(fill: (el: HTMLElement) => void): void {
+    fill(this.overlay);
+    this.overlay.classList.add('visible');
   }
 
   private hideOverlay(): void {
-    this.overlay.classList.add('hidden');
-    this.overlay.innerHTML = '';
+    this.overlay.classList.remove('visible');
   }
 
   // ------------------------------------------------------------ Eingabe
@@ -160,7 +185,7 @@ export class App {
 
   private action(a: ToolAction): void {
     if (a === 'fullscreen') { void toggleFullscreen(); return; }
-    if (a === 'pause') { if (this.screen === 'paused') this.resume(); else this.openPause(); return; }
+    if (a === 'pause') { if (this.screen === 'pause') this.resume(); else this.openPause(); return; }
     if (a === 'zoomIn') this.view.zoomStep(1.25);
     if (a === 'zoomOut') this.view.zoomStep(0.8);
     if (a === 'replan') this.send({ type: 'replan' });
@@ -172,9 +197,10 @@ export class App {
   private key(code: string, e: KeyboardEvent): void {
     if (code === 'Escape') {
       if (this.screen === 'play') this.openPause();
-      else if (this.screen === 'paused') this.resume();
+      else if (this.screen === 'pause') this.resume();
       return;
     }
+    if (this.screen === 'title' && (code === 'Enter' || code === 'Space')) { this.openLevels('start'); return; }
     if (this.screen !== 'play' || !this.sim) return;
     const planning = this.sim.mode === 'sled' && this.sim.phase === 'plan';
     if (code === 'KeyF') { void toggleFullscreen(); return; }
@@ -218,14 +244,21 @@ export class App {
       case 'inkEmpty': this.hud.toast(e.boost ? 'Speedtinte aufgebraucht!' : 'Tinte aufgebraucht!'); break;
       case 'blocked': this.hud.toast('Hier kann man nicht zeichnen'); break;
       case 'refuse': audio.refuse(); this.hud.toast('Erst Geschenke sammeln!', 1800); break;
-      case 'win': audio.win(); this.showWin(e.result); break;
+      case 'win': {
+        audio.win();
+        this.toolbar.setPlanning(false, false);
+        this.touch.show(false);
+        const sim = this.sim;
+        window.setTimeout(() => { if (this.sim === sim && this.screen === 'play') this.showWin(e.result); }, 1300);
+        break;
+      }
       default: break;
     }
   }
 
   private render(alpha: number): void {
     const sim = this.sim;
-    if (!sim) return;
+    if (!sim) { this.view.renderScenery(); return; }
     this.view.render(sim, alpha, this.events);
     this.events = [];
     if (this.screen !== 'play') return;

@@ -1,5 +1,5 @@
 import { Container, Rectangle, Sprite, type Application, type Texture } from 'pixi.js';
-import type { LevelData, Vec2 } from '../sim/types';
+import type { LevelData, Theme, Vec2 } from '../sim/types';
 import type { Simulation } from '../sim/simulation';
 import type { SimEvent } from '../sim/events';
 import { clamp } from '../sim/geometry';
@@ -122,8 +122,37 @@ export class GameView {
     this.bloomHost.filterArea = new Rectangle(0, 0, w, h);
   }
 
+  /** Kulisse ohne Spielebene (Titel, Levelauswahl): Hintergrund driftet langsam. */
+  showScenery(theme: Theme): void {
+    this.level = null;
+    this.setWorldVisible(false);
+    this.mountBackdrop(theme);
+    this.particles.clear();
+    this.flights.clear();
+  }
+
+  renderScenery(): void {
+    if (this.level || !this.backdrop) return;
+    const now = performance.now();
+    this.lastTime = now;
+    const t = now / 1000;
+    this.backdrop.update(t * 30, 0, t);
+  }
+
+  private setWorldVisible(v: boolean): void {
+    for (const c of [this.world, this.bloomHost, this.frontWorld, this.flights.container]) c.visible = v;
+  }
+
+  private mountBackdrop(theme: Theme): void {
+    this.backdrop?.destroy();
+    this.backdrop = new Backdrop(theme, { w: this.camera.screenW, h: this.camera.screenH }, QUALITY[this.tier].particles);
+    this.backLayer.addChild(this.backdrop.container);
+    this.frontLayer.addChild(this.backdrop.front);
+  }
+
   async load(level: LevelData): Promise<void> {
     this.level = level;
+    this.setWorldVisible(true);
     this.debug?.load(level);
     this.objects?.destroy();
     this.hazards?.destroy();
@@ -133,10 +162,7 @@ export class GameView {
     this.objGlow.addChild(this.objects.glow, this.hazards.glow);
     this.flights.clear();
 
-    this.backdrop?.destroy();
-    this.backdrop = new Backdrop(level.theme, { w: this.camera.screenW, h: this.camera.screenH }, QUALITY[this.tier].particles);
-    this.backLayer.addChild(this.backdrop.container);
-    this.frontLayer.addChild(this.backdrop.front);
+    this.mountBackdrop(level.theme);
 
     this.roofs?.destroy();
     this.roofs = new Roofs(level);

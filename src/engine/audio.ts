@@ -3,9 +3,22 @@
  * Alles wird per Oszillator + Envelope erzeugt; unlock() muss nach der
  * ersten Nutzer-Geste laufen (Browser-Autoplay-Policy).
  */
+const MUTE_KEY = 'schlittenfahrer.muted';
+
+function readMuted(): boolean {
+  try { return window.localStorage.getItem(MUTE_KEY) === '1'; } catch { return false; }
+}
+
 class AudioEngine {
   private ctx: AudioContext | null = null;
   private mounted = false;
+  private mutedFlag = readMuted();
+
+  get muted(): boolean { return this.mutedFlag; }
+  set muted(m: boolean) {
+    this.mutedFlag = m;
+    try { window.localStorage.setItem(MUTE_KEY, m ? '1' : '0'); } catch { /* Best-Effort */ }
+  }
 
   /** Einmalig binden (Game ruft es im Konstruktor). */
   mount(): void {
@@ -35,7 +48,7 @@ class AudioEngine {
     slideTo?: number,
     delay = 0,
   ): void {
-    if (!this.ctx) return;
+    if (!this.ctx || this.mutedFlag) return;
     if (this.ctx.state === 'suspended') void this.ctx.resume();
     const t0 = this.ctx.currentTime + delay;
 

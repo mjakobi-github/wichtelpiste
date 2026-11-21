@@ -1,5 +1,6 @@
 import type { Simulation } from '../sim/simulation';
 import type { Budget } from '../sim/types';
+import { icon } from './icons';
 
 /** Anzeige: Tinte, Speedtinte, Geschenke, Levelname, kurze Meldungen. */
 export class Hud {
@@ -9,17 +10,23 @@ export class Hud {
   private readonly inkWrap: HTMLElement;
   private readonly gifts: HTMLElement;
   private readonly label: HTMLElement;
+  private readonly giftCount: HTMLElement;
   private readonly toastEl: HTMLElement;
+  private readonly bannerEl: HTMLElement;
   private toastTimer = 0;
+  private bannerTimer = 0;
 
   constructor(root: HTMLElement) {
     this.el = div(root, 'hud');
     this.label = div(this.el, 'hud-label');
     this.gifts = div(this.el, 'hud-gifts');
+    this.gifts.innerHTML = icon('gift');
+    this.giftCount = div(this.gifts, 'hud-count');
     this.inkWrap = div(this.el, 'hud-ink');
-    this.inkBar = bar(this.inkWrap, 'ink');
-    this.boostBar = bar(this.inkWrap, 'boost');
+    this.inkBar = bar(this.inkWrap, 'ink', icon('pencil'));
+    this.boostBar = bar(this.inkWrap, 'boost', icon('rocket'));
     this.toastEl = div(root, 'toast');
+    this.bannerEl = div(root, 'banner');
   }
 
   show(v: boolean): void {
@@ -30,12 +37,21 @@ export class Hud {
     const lv = sim.level;
     const n = lv.stations.length;
     this.label.textContent = `${levelNumber}. ${lv.name}${n > 1 && sim.mode === 'sled' ? ` · Abschnitt ${sim.activeArea + 1}/${n}` : ''}`;
-    this.gifts.textContent = `🎁 ${sim.giftTaken.filter(Boolean).length} / ${lv.gifts.length}`;
+    const count = `${sim.giftTaken.filter(Boolean).length} / ${lv.gifts.length}`;
+    if (this.giftCount.textContent !== count) {
+      if (this.giftCount.textContent) {
+        // Animation neu starten: Klasse entfernen, Reflow erzwingen, wieder setzen
+        this.gifts.classList.remove('bump');
+        void this.gifts.offsetWidth;
+        this.gifts.classList.add('bump');
+      }
+      this.giftCount.textContent = count;
+    }
     const area = lv.areas[sim.activeArea];
     this.inkWrap.classList.toggle('hidden', sim.mode !== 'sled');
     setBar(this.inkBar, sim.ink.remaining(sim.activeArea, false), area.ink);
     setBar(this.boostBar, sim.ink.remaining(sim.activeArea, true), area.boost);
-    this.boostBar.parentElement!.classList.toggle('hidden', area.boost === 0);
+    this.boostBar.parentElement!.parentElement!.classList.toggle('hidden', area.boost === 0);
   }
 
   toast(text: string, ms = 1400): void {
@@ -43,6 +59,21 @@ export class Hud {
     this.toastEl.classList.add('visible');
     window.clearTimeout(this.toastTimer);
     this.toastTimer = window.setTimeout(() => this.toastEl.classList.remove('visible'), ms);
+  }
+
+  /** Level-Einblendung: Name + Ziel, blendet nach ms aus. */
+  banner(title: string, sub: string, ms = 2200): void {
+    this.bannerEl.innerHTML = `<h2></h2><p></p>`;
+    this.bannerEl.querySelector('h2')!.textContent = title;
+    this.bannerEl.querySelector('p')!.textContent = sub;
+    this.bannerEl.classList.add('visible');
+    window.clearTimeout(this.bannerTimer);
+    this.bannerTimer = window.setTimeout(() => this.bannerEl.classList.remove('visible'), ms);
+  }
+
+  hideBanner(): void {
+    window.clearTimeout(this.bannerTimer);
+    this.bannerEl.classList.remove('visible');
   }
 }
 
@@ -53,8 +84,10 @@ function div(parent: HTMLElement, cls: string): HTMLElement {
   return d;
 }
 
-function bar(parent: HTMLElement, kind: string): HTMLElement {
-  const wrap = div(parent, `bar bar-${kind}`);
+function bar(parent: HTMLElement, kind: string, iconSvg: string): HTMLElement {
+  const row = div(parent, `bar-row bar-row-${kind}`);
+  row.innerHTML = iconSvg;
+  const wrap = div(row, `bar bar-${kind}`);
   return div(wrap, 'bar-fill');
 }
 
