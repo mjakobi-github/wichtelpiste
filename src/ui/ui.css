@@ -57,7 +57,7 @@ button:active { transform: scale(0.95); }
 .toolbtn { font-size: 20px; }
 .toolbtn.active { border-color: var(--accent); box-shadow: 0 0 12px rgba(255, 210, 122, 0.6); }
 .toolbtn.danger { border-color: rgba(255, 107, 107, 0.5); }
-.corner { position: absolute; top: calc(10px + var(--safe-t)); right: calc(12px + var(--safe-r)); display: flex; gap: 8px; }
+.corner { position: absolute; top: calc(10px + var(--safe-t)); right: calc(12px + var(--safe-r)); display: flex; gap: 8px; z-index: 2; }
 .corner .toolbtn { font-size: 22px; }
 .zoombar { position: absolute; left: calc(12px + var(--safe-l)); top: 55%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 8px; }
 .zoombar .toolbtn { font-size: 24px; font-weight: 700; }

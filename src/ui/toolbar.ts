@@ -18,6 +18,7 @@ export class Toolbar {
   private readonly zoomBar: HTMLElement;
   private readonly replan: HTMLButtonElement;
   readonly fullscreenBtn: HTMLButtonElement;
+  private readonly pauseBtn: HTMLButtonElement;
 
   constructor(root: HTMLElement, onTool: (t: ToolName) => void, onAction: (a: ToolAction) => void) {
     this.bar = document.createElement('div');
@@ -41,7 +42,7 @@ export class Toolbar {
     corner.className = 'corner';
     root.appendChild(corner);
     this.fullscreenBtn = btn(corner, 'toolbtn', '⛶', 'Vollbild (F)', () => onAction('fullscreen'));
-    btn(corner, 'toolbtn', '☰', 'Pause (Esc)', () => onAction('pause'));
+    this.pauseBtn = btn(corner, 'toolbtn', '☰', 'Pause (Esc)', () => onAction('pause'));
   }
 
   setTool(t: ToolName): void {
@@ -53,6 +54,10 @@ export class Toolbar {
     this.launch.classList.toggle('hidden', !planning);
     this.zoomBar.classList.toggle('hidden', !planning);
     this.boostBtn.classList.toggle('hidden', !boostAvailable);
+  }
+
+  setPauseVisible(visible: boolean): void {
+    this.pauseBtn.classList.toggle('hidden', !visible);
   }
 
   setReplan(visible: boolean): void {

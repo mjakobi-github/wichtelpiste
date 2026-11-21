@@ -247,7 +247,7 @@ describe('Simulation', () => {
   it('Nach der Ankunft: zurück zum Zeichnen stellt den Stand vor der Fahrt her', () => {
     const sim = new Simulation(level({
       dismounts: [{ x: 600, y: 400, w: 100, h: 100 }],
-      gifts: [{ x: 345, y: 494 }, { x: 900, y: 481 }],
+      gifts: [{ x: 345, y: 494 }, { x: 650, y: 481 }],
     }));
     expect(sim.canReplan).toBe(false);
     sim.boardForTest(0);
@@ -257,7 +257,7 @@ describe('Simulation', () => {
     expect(sim.mode).toBe('foot');
     expect(sim.giftTaken[0]).toBe(true);
     expect(sim.canReplan).toBe(true);
-    // zu Fuß weiter, zweites Geschenk einsammeln
+    // zu Fuß in der Landezone ein Geschenk einsammeln
     runUntil(sim, 2, RIGHT, (e) => e.type === 'gift');
     expect(sim.giftTaken[1]).toBe(true);
     sim.command({ type: 'replan' });
@@ -269,6 +269,20 @@ describe('Simulation', () => {
     expect(sim.giftTaken).toEqual([false, false]);
     expect(sim.ink.strokes.length).toBe(1);
     expect(sim.sled.pos.x).toBeCloseTo(300, 0);
+  });
+
+  it('zurück zum Zeichnen endet, sobald man die Landezone verlässt', () => {
+    const sim = new Simulation(level({ dismounts: [{ x: 600, y: 400, w: 100, h: 100 }] }));
+    sim.boardForTest(0);
+    sim.command({ type: 'launch' });
+    runUntil(sim, 5, IDLE, (e) => e.type === 'arrive');
+    expect(sim.canReplan).toBe(true);
+    runUntil(sim, 1.5, RIGHT);
+    expect(sim.player.pos.x).toBeGreaterThan(720);
+    expect(sim.canReplan).toBe(false);
+    // auch nach Zurücklaufen nicht wieder
+    runUntil(sim, 1.5, { ...RIGHT, move: -1 });
+    expect(sim.canReplan).toBe(false);
   });
 
   it('replan ohne vorherige Fahrt bewirkt nichts', () => {

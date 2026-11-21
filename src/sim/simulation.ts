@@ -219,6 +219,12 @@ export class Simulation {
 
     this.collectGifts(p.center, ev);
 
+    // „Zurück zum Zeichnen“ nur, solange man in der Landezone steht
+    if (this.lastRideArea !== null) {
+      const zone = this.targetZone(this.lastRideArea);
+      if (!zone || !overlap(p.aabb, zone)) this.lastRideArea = null;
+    }
+
     this.level.checkpoints.forEach((cp, i) => {
       if (i <= this.checkpointIdx || dist(cp, p.center) >= CHECKPOINT_RADIUS) return;
       this.checkpointIdx = i;

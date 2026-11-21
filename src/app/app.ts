@@ -13,7 +13,7 @@ import { TouchControls } from '../ui/touchControls';
 import { Progress } from './progress';
 import { fullscreenSupported, toggleFullscreen } from '../ui/fullscreen';
 
-type Screen = 'menu' | 'play' | 'won';
+type Screen = 'menu' | 'play' | 'paused' | 'won';
 
 /** Verdrahtet Simulation, Darstellung, Oberfläche und Audio. */
 export class App {
@@ -75,6 +75,7 @@ export class App {
     this.touch.show(false);
     this.toolbar.setPlanning(false, false);
     this.toolbar.setReplan(false);
+    this.toolbar.setPauseVisible(false);
     const items = LEVELS.map((lv, i) => {
       const p = this.progress.get(lv);
       const stars = '★'.repeat(p.stars) + '☆'.repeat(3 - p.stars);
@@ -94,6 +95,7 @@ export class App {
     this.input.reset();
     this.hideOverlay();
     this.hud.show(true);
+    this.toolbar.setPauseVisible(true);
     this.setTool('draw');
     this.screen = 'play';
   }
@@ -106,6 +108,7 @@ export class App {
     const next = this.levelIdx + 1 < LEVELS.length;
     this.toolbar.setPlanning(false, false);
     this.toolbar.setReplan(false);
+    this.toolbar.setPauseVisible(false);
     this.touch.show(false);
     this.showOverlay(`<div class="panel"><h2>Level geschafft!</h2>
       <div style="font-size:40px">${'★'.repeat(r.stars)}${'☆'.repeat(3 - r.stars)}</div>
@@ -114,6 +117,24 @@ export class App {
     this.overlay.querySelector('[data-a="again"]')?.addEventListener('click', () => void this.startLevel(this.levelIdx));
     this.overlay.querySelector('[data-a="next"]')?.addEventListener('click', () => void this.startLevel(this.levelIdx + 1));
     this.overlay.querySelector('[data-a="menu"]')?.addEventListener('click', () => this.openMenu());
+  }
+
+  private openPause(): void {
+    if (this.screen !== 'play') return;
+    this.screen = 'paused';
+    this.send({ type: 'strokeEnd' });
+    this.showOverlay(`<div class="panel"><h2>Pause</h2>
+      <div class="row"><button data-a="resume">▶ Weiter</button><button data-a="restart">↻ Neu starten</button><button data-a="menu">Levelauswahl</button></div></div>`);
+    this.overlay.querySelector('[data-a="resume"]')?.addEventListener('click', () => this.resume());
+    this.overlay.querySelector('[data-a="restart"]')?.addEventListener('click', () => void this.startLevel(this.levelIdx));
+    this.overlay.querySelector('[data-a="menu"]')?.addEventListener('click', () => this.openMenu());
+  }
+
+  private resume(): void {
+    if (this.screen !== 'paused') return;
+    this.input.reset();
+    this.hideOverlay();
+    this.screen = 'play';
   }
 
   private showOverlay(html: string): void {
@@ -139,7 +160,7 @@ export class App {
 
   private action(a: ToolAction): void {
     if (a === 'fullscreen') { void toggleFullscreen(); return; }
-    if (a === 'pause') { this.openMenu(); return; }
+    if (a === 'pause') { if (this.screen === 'paused') this.resume(); else this.openPause(); return; }
     if (a === 'zoomIn') this.view.zoomStep(1.25);
     if (a === 'zoomOut') this.view.zoomStep(0.8);
     if (a === 'replan') this.send({ type: 'replan' });
@@ -149,7 +170,11 @@ export class App {
   }
 
   private key(code: string, e: KeyboardEvent): void {
-    if (code === 'Escape') { if (this.screen === 'play') this.openMenu(); return; }
+    if (code === 'Escape') {
+      if (this.screen === 'play') this.openPause();
+      else if (this.screen === 'paused') this.resume();
+      return;
+    }
     if (this.screen !== 'play' || !this.sim) return;
     const planning = this.sim.mode === 'sled' && this.sim.phase === 'plan';
     if (code === 'KeyF') { void toggleFullscreen(); return; }
