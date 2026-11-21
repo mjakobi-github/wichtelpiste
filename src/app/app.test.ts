@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatInk, nextScreen } from './flow';
+import { canPause, formatInk, nextScreen } from './flow';
 
 describe('nextScreen', () => {
   it.each([
@@ -30,5 +30,14 @@ describe('formatInk', () => {
     expect(formatInk(1234)).toBe('1.234');
     expect(formatInk(987)).toBe('987');
     expect(formatInk(1234567.4)).toBe('1.234.567');
+  });
+});
+
+describe('canPause', () => {
+  it('nur im Spiel und nicht nach dem Sieg', () => {
+    expect(canPause('play', false)).toBe(true);
+    expect(canPause('play', true)).toBe(false);
+    expect(canPause('won', false)).toBe(false);
+    expect(canPause('levels', false)).toBe(false);
   });
 });

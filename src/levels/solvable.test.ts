@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS } from './index';
-import { runArea, type Solution } from './solveRunner';
+import { runArea, SOLVE_DT, type Solution } from './solveRunner';
+import { Loop } from '../engine/loop';
 
 const files = import.meta.glob<Solution>('./solutions/*.json', { eager: true, import: 'default' });
 const solutions = new Map(Object.entries(files).map(([p, s]) => [p.replace('./solutions/', '').replace('.json', ''), s]));
 
 describe('Lösbarkeit', () => {
-  it('es gibt genau 8 Levels', () => expect(LEVELS.length).toBe(8));
+  it('mindestens die 8 Standard-Levels', () => expect(LEVELS.length).toBeGreaterThanOrEqual(8));
+  it('simuliert mit demselben Takt wie das Spiel', () => expect(SOLVE_DT).toBe(Loop.STEP));
 
   for (const level of LEVELS) {
     describe(level.name, () => {

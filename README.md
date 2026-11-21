@@ -94,6 +94,9 @@ Nützlich beim Entwickeln:
   Konsole kopiert `copy(__exportStrokes())` die gezeichneten Linien im
   Lösungsformat.
 - `?q=low` / `?q=medium`: eine Qualitätsstufe erzwingen.
+- **Neues Level:** JSON nach `src/levels/` legen und eine Lösung nach
+  `src/levels/solutions/<id>.json` (im Spiel mit `?debug` zeichnen und exportieren).
+  Ohne Lösung schlägt `npm test` fehl, und damit auch das Veröffentlichen.
 
 ## Builds und Veröffentlichung
 

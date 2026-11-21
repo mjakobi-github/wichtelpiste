@@ -52,9 +52,10 @@ export class Ink {
     return true;
   }
 
-  extend(p: Vec2): 'ok' | 'empty' | 'blocked' {
+  /** none = kein laufender Strich (z. B. Tinte leer beim Ansetzen, oder nach Pause) – kein Fehler. */
+  extend(p: Vec2): 'ok' | 'empty' | 'blocked' | 'none' {
     const s = this.active;
-    if (!s) return 'blocked';
+    if (!s) return 'none';
     const last = s.pts[s.pts.length - 1];
     const len = dist(last, p);
     if (len < INK_TUNING.minStep) return 'ok';

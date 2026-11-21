@@ -14,6 +14,11 @@ export function nextScreen(s: Screen, action: ScreenAction): Screen {
   return FLOW[s][action] ?? s;
 }
 
+/** Pausieren nur im laufenden Spiel und nicht mehr nach dem Sieg (sonst ginge der Sieg verloren). */
+export function canPause(s: Screen, won: boolean): boolean {
+  return s === 'play' && !won;
+}
+
 /** Tintenwert für Anzeigen: „—“ ohne Wert, sonst Ganzzahl mit Tausenderpunkt. */
 export function formatInk(n: number | null): string {
   if (n === null) return '—';

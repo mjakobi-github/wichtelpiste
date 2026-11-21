@@ -18,7 +18,7 @@ import { renderLevelSelect } from '../ui/screens/levelSelect';
 import { renderPause } from '../ui/screens/pause';
 import { renderWin } from '../ui/screens/win';
 import { Progress } from './progress';
-import { nextScreen, type Screen, type ScreenAction } from './flow';
+import { canPause, nextScreen, type Screen, type ScreenAction } from './flow';
 import { fullscreenSupported, toggleFullscreen } from '../ui/fullscreen';
 
 export { nextScreen, formatInk, type Screen } from './flow';
@@ -153,7 +153,7 @@ export class App {
   }
 
   private openPause(): void {
-    if (this.screen !== 'play') return;
+    if (!canPause(this.screen, this.sim?.won ?? false)) return;
     this.go('pause');
     this.send({ type: 'strokeEnd' });
     this.hud.hideBanner();
@@ -269,6 +269,7 @@ export class App {
       case 'win': {
         audio.win();
         this.toolbar.setPlanning(false, false);
+        this.toolbar.setPauseVisible(false);
         this.touch.show(false);
         const sim = this.sim;
         window.setTimeout(() => { if (this.sim === sim && this.screen === 'play') this.showWin(e.result); }, 1300);

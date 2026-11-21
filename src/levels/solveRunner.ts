@@ -1,6 +1,7 @@
 import type { LevelData, Vec2 } from '../sim/types';
 import type { SimEvent } from '../sim/events';
 import { Simulation } from '../sim/simulation';
+import { Loop } from '../engine/loop';
 
 /** Lösungsdatei: je Abschnitt die Striche (Punkte als [x, y]). */
 export interface Solution { areas: { strokes: { boost: boolean; pts: [number, number][] }[] }[] }
@@ -16,7 +17,9 @@ export interface AreaRun {
   time: number;
 }
 
-const DT = 1 / 120;
+/** Gleicher fester Takt wie im Spiel – das Ergebnis der Fahrt hängt vom Schritt ab. */
+export const SOLVE_DT = Loop.STEP;
+const DT = SOLVE_DT;
 const IDLE = { move: 0 as const, jumpHeld: false, jumpPressed: false };
 
 /** Steigt an Station `area` ein, zeichnet die Lösung, fährt los und simuliert bis zum Ergebnis. */

@@ -97,6 +97,23 @@ describe('Simulation', () => {
     expect(sim.moverPositions()).toEqual(first);
   });
 
+  it('leere Tinte meldet nur inkEmpty, kein blocked bei den folgenden Zügen', () => {
+    const sim = new Simulation(level({ areas: [{ ink: 0, boost: 0 }] }));
+    sim.boardForTest(0);
+    sim.command({ type: 'strokeBegin', p: { x: 400, y: 300 }, boost: false });
+    sim.command({ type: 'strokeMove', p: { x: 450, y: 300 } });
+    sim.command({ type: 'strokeMove', p: { x: 500, y: 300 } });
+    const ev = sim.step(DT, IDLE).map((e) => e.type);
+    expect(ev).toEqual(['inkEmpty']);
+  });
+
+  it('Züge ohne laufenden Strich (z. B. nach Pause) melden nichts', () => {
+    const sim = new Simulation(level());
+    sim.boardForTest(0);
+    sim.command({ type: 'strokeMove', p: { x: 450, y: 300 } });
+    expect(sim.step(DT, IDLE)).toEqual([]);
+  });
+
   it('keine Striche während der Fahrt', () => {
     const sim = new Simulation(level());
     sim.boardForTest(0);

@@ -9,7 +9,7 @@ selbst gehosteten Schrift (Fredoka).
 ```
 src/
   sim/      Spielregeln ohne DOM: Simulation, Spieler, Schlitten, Tinte, Elemente, Wertung
-  engine/   Takt (fester Schritt 120 Hz), Eingabe, Gesten, WebAudio-Synth
+  engine/   Takt (fester Schritt 60 Hz, höchstens 6 Schritte je Bild), Eingabe, Gesten, WebAudio-Synth
   view/     Darstellung mit Pixi: Kamera, Hintergrund, Welt, Figuren, Effekte, Qualität
   ui/       HTML/CSS über dem Canvas: HUD, Werkzeugleiste, Bildschirme, Hinweise, Icons
   app/      Verdrahtung (App), Bildschirm-Fluss, Fortschritt (localStorage)
@@ -79,7 +79,9 @@ Zu jedem Level gehört `src/levels/solutions/<id>.json`
 (`{ areas: [{ strokes: [{ boost, pts: [[x, y], …] }] }] }`).
 `solvable.test.ts` steigt mit `boardForTest` an jeder Station ein, zeichnet
 die Lösung, fährt los und verlangt: Ankunft in der Landezone (bzw. Sieg am
-Schornstein), Budget eingehalten, keine Verbotszone. Lösungen lassen sich im
+Schornstein), Budget eingehalten, keine Verbotszone. Der Test simuliert mit
+demselben Takt wie das Spiel (`Loop.STEP`). **Jedes neue Level braucht eine
+Lösungsdatei**, sonst schlägt der Test fehl und GitHub Pages wird nicht aktualisiert. Lösungen lassen sich im
 Spiel mit `?debug` zeichnen und mit `copy(__exportStrokes())` exportieren.
 
 ## 4. Darstellung (`src/view`)
