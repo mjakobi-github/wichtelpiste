@@ -1,4 +1,4 @@
-# Schlittenfahrer
+# Wichtelpiste
 
 Ein Weihnachtsspiel für die ganze Familie, gemacht fürs Handy (Querformat) und
 spielbar auf jedem Rechner. Du bist eine Weihnachtself auf Lieferreise: Sammle
@@ -109,3 +109,5 @@ Bei jedem Push auf `main` testet und baut GitHub Actions
 (`.github/workflows/deploy.yml`) und veröffentlicht auf GitHub Pages. Dafür
 muss einmalig in den Repo-Einstellungen unter Pages die Quelle
 „GitHub Actions“ gewählt werden. Durch `base: './'` ist der Repo-Name egal.
+
+Online: **https://mjakobi-github.github.io/wichtelpiste/**

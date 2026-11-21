@@ -1,4 +1,4 @@
-# Technik – Schlittenfahrer v1
+# Technik – Wichtelpiste v1
 
 Stack: **TypeScript (strict) · Vite 6 · PixiJS 8 · pixi-filters (Bloom) · Vitest ·
 vite-plugin-pwa**. Keine Server, keine Assets außer Inline-SVG und einer

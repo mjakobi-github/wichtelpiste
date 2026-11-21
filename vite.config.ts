@@ -17,8 +17,8 @@ export default defineConfig(({ mode }) => ({
       injectRegister: 'script-defer',
       pwaAssets: { config: true, overrideManifestIcons: true },
       manifest: {
-        name: 'Schlittenfahrer',
-        short_name: 'Schlitten',
+        name: 'Wichtelpiste',
+        short_name: 'Wichtelpiste',
         description: 'Zeichne Pisten, sammle Geschenke, liefere sie durch den Schornstein.',
         lang: 'de',
         display: 'fullscreen',
