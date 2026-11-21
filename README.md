@@ -88,7 +88,9 @@ Speichern ins Projekt, nur Export/Import als Datei).
 1. **Neues Level** anlegen oder ein vorhandenes öffnen. Ein angefangener
    Entwurf wird im Browser gemerkt und lässt sich fortsetzen.
 2. **Bauen:** Baustein links wählen und in die Welt tippen (Umschalt: mehrere
-   nacheinander). Elemente antippen und ziehen, an den weißen Griffen die Größe,
+   nacheinander). **Boden** legt ein Haus an, dessen Dach am angetippten Punkt
+   liegt. **Balken** ist eine schmale Plattform; jede Plattform ab 50 px Höhe
+   wird als Haus gezeichnet. Elemente antippen und ziehen, an den weißen Griffen die Größe,
    die Bahn von Glocke und Krähe oder die Richtung einer Feder ändern. Feinwerte
    stehen rechts im Eigenschaften-Feld. **Level** (oben rechts) öffnet die
    Profi-Einstellungen: Name, ID, Weltgröße, Polarlicht, Tinte je Abschnitt.

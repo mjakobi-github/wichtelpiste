@@ -9,7 +9,7 @@ import type { Recording } from './recorder';
 import { Draft, type DraftData } from './draft';
 import { EditorState } from './state';
 import { newLevel } from './template';
-import { addElement, duplicateElement, getElement, moveElement, type ElementRef } from './doc';
+import { addElement, duplicateElement, getElement, moveElement, repairLevel, type ElementRef } from './doc';
 import { elementBounds } from './handles';
 import { applyField, applyLevelField, fieldsFor, levelFields, type Field } from './fields';
 import { elementName, levelIssues, suggestBudgets, type Issue } from './checks';
@@ -69,6 +69,7 @@ export class Editor {
   /** resume: direkt mit dem Entwurf weitermachen (z. B. nach dem Neuladen durch Speichern), ohne Startdialog. */
   constructor(private readonly host: EditorHost, resume = false) {
     this.doc = this.draft.load() ?? { level: newLevel(), solution: null, file: null, camera: null };
+    this.doc = { ...this.doc, level: repairLevel(this.doc.level) };
     if (!this.doc.file) {
       // Seite wurde nach dem Speichern neu geladen, bevor die Antwort ankam: Datei am Inhalt wiederfinden.
       const same = LEVEL_FILES.find((f) => f.level.id === this.doc.level.id && JSON.stringify(f.level) === JSON.stringify(this.doc.level));

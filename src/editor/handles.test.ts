@@ -97,6 +97,17 @@ describe('hitTest', () => {
     expect(hitTest(l, off, 0.5, ref)?.handle).toBe('se');
   });
 
+  it('schmales Element: innen verschiebt (außer Ecken), Kanten-Griffe knapp außerhalb', () => {
+    const t = addElement(newLevel(), 'hazard', { x: 500, y: 200 }, 'tinsel');
+    const r = (t.level.hazards[0]).rect;
+    const mid = { x: r.x + r.w / 2 + 15, y: r.y + r.h / 2 };
+    expect(hitTest(t.level, mid, 1, t.ref)).toEqual({ ref: t.ref, handle: 'move' });
+    expect(hitTest(t.level, { x: r.x + r.w / 2, y: r.y + r.h / 2 }, 1, t.ref)?.handle).toBe('move');
+    expect(hitTest(t.level, { x: r.x + r.w / 2, y: r.y + r.h + 6 }, 1, t.ref)?.handle).toBe('s');
+    expect(hitTest(t.level, { x: r.x + 2, y: r.y + 2 }, 1, t.ref)?.handle).toBe('nw');
+    expect(hitTest(t.level, { x: r.x + r.w + 15, y: r.y + r.h + 10 }, 1, t.ref)?.handle).toBe('se');
+  });
+
   it('leere Fläche → null', () => {
     expect(hitTest(newLevel(), { x: 1000, y: 100 }, 1, null)).toBeNull();
   });

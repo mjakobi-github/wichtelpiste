@@ -4,10 +4,11 @@ import type { ElementKind } from './doc';
 import type { Field } from './fields';
 import type { Issue } from './checks';
 
-export interface PaletteEntry { kind: ElementKind; variant?: string; label: string }
+export interface PaletteEntry { kind: ElementKind; variant?: string; label: string; title?: string }
 
 export const PALETTE: readonly PaletteEntry[] = [
-  { kind: 'platform', label: 'Dach' },
+  { kind: 'platform', variant: 'ground', label: 'Boden', title: 'Boden/Haus: Oberkante am angetippten Punkt' },
+  { kind: 'platform', label: 'Balken', title: 'Schmaler Balken (unter 50 px Höhe), wird ab 50 px zum Haus' },
   { kind: 'platform', variant: 'ice', label: 'Eis' },
   { kind: 'spawn', label: 'Start' },
   { kind: 'station', label: 'Station' },
@@ -99,7 +100,7 @@ export class EditorUi {
     PALETTE.forEach((p, i) => {
       const b = el('button', `ed-pal kind-${p.kind}`, pal);
       b.innerHTML = `<i class="sw"></i>${esc(p.label)}`;
-      b.title = `${p.label} platzieren (Umschalt: mehrere)`;
+      b.title = `${p.title ?? `${p.label} platzieren`} (Umschalt: mehrere)`;
       b.addEventListener('click', () => h.palette(i));
       this.palBtns.push(b);
     });

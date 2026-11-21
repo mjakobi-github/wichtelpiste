@@ -9,6 +9,8 @@ export type HandleId =
 
 /** Griff-Trefferradius in Bildschirm-px (≥ 44 px Trefferfläche). */
 export const HANDLE_HIT_PX = 22;
+/** Griff-Punkt (sichtbarer Kreis + etwas Luft) in Bildschirm-px – zählt innerhalb des Elements. */
+const HANDLE_DOT_PX = 11;
 /** Mindestmaß von Rechtecken und Höhen. */
 const MIN = 10;
 /** Abstand des Feder-Richtungsgriffs von der Basis. */
@@ -113,10 +115,15 @@ const inRect = (p: Vec2, r: Rect, pad: number): boolean =>
 export function hitTest(l: LevelData, p: Vec2, scale: number, selected: ElementRef | null): { ref: ElementRef; handle: HandleId } | null {
   const rad = HANDLE_HIT_PX / scale;
   if (selected) {
+    // Im Rechteck selbst wird verschoben; dort greifen nur die Eck-Punkte. Kanten-Griffe wirken knapp außerhalb –
+    // bei schmalen Elementen (Lametta, Balken) würden ihre Trefferflächen sonst das ganze Element überdecken.
+    const insideBody = rectOf(l, selected) !== null && inRect(p, elementBounds(l, selected), 0);
     let best: { id: HandleId; d: number } | null = null;
     for (const h of handlesFor(l, selected)) {
+      if (insideBody && h.id.length === 1) continue;
+      const limit = insideBody ? HANDLE_DOT_PX / scale : rad;
       const d = Math.hypot(h.pos.x - p.x, h.pos.y - p.y);
-      if (d <= rad && (!best || d < best.d)) best = { id: h.id, d };
+      if (d <= limit && (!best || d < best.d)) best = { id: h.id, d };
     }
     if (best) return { ref: selected, handle: best.id };
   }

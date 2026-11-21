@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { validateLevel } from '../levels/schema';
 import { LEVELS } from '../levels';
 import {
-  addElement, duplicateElement, getElement, listElements, moveElement, removeElement, renumberStation, setElement, snap,
+  addElement, duplicateElement, getElement, listElements, moveElement, removeElement, renumberStation, repairLevel, setElement, snap,
   type ElementKind,
 } from './doc';
 import { newLevel } from './template';
@@ -34,6 +34,15 @@ describe('addElement', () => {
     expect(ref.kind).toBe(kind);
     expect(listElements(level).length).toBe(listElements(base).length + 1);
     expect(getElement(level, ref)).toBeDefined();
+  });
+
+  it('Boden-Variante ist ein Haus (ab 50 px Höhe), ohne Eis', () => {
+    const { level, ref } = addElement(newLevel(), 'platform', { x: 400, y: 600 }, 'ground');
+    const p = getElement(level, ref) as { w: number; h: number; ice: boolean; y: number };
+    expect(p.h).toBeGreaterThanOrEqual(50);
+    expect(p.w).toBeGreaterThanOrEqual(300);
+    expect(p.ice).toBe(false);
+    expect(p.y).toBe(600);
   });
 
   it('Eis-Variante setzt ice', () => {
@@ -120,6 +129,40 @@ describe('moveElement', () => {
     expect(moveElement(l, { kind: 'hazard', index: 0 }, 3, 4).hazards[0].rect.x).toBe(l.hazards[0].rect.x + 3);
     const h = addElement(l, 'hint', { x: 500, y: 500 });
     expect(moveElement(h.level, h.ref, 3, 4).hints.at(-1)!.at.x).toBe(h.level.hints.at(-1)!.at.x + 3);
+  });
+});
+
+describe('moveElement behält alle Felder', () => {
+  it.each(VARIANTS)('%s %s: nur Position ändert sich, Level bleibt gültig', (kind, variant) => {
+    const base = kind === 'dismount' ? addElement(newLevel(), 'station', { x: 900, y: 400 }).level : newLevel();
+    const { level, ref } = addElement(base, kind, { x: 400, y: 300 }, variant);
+    const moved = moveElement(level, ref, 30, -20);
+    expect(() => ok(moved)).not.toThrow();
+    const keys = (v: unknown) => Object.keys(v as object).sort();
+    expect(keys(getElement(moved, ref))).toEqual(keys(getElement(level, ref)));
+  });
+
+  it('Plattform: Breite, Höhe, Eis bleiben', () => {
+    const l = addElement(newLevel(), 'platform', { x: 400, y: 300 }, 'ice');
+    const p = moveElement(l.level, l.ref, 10, 10).platforms.at(-1)!;
+    const p0 = l.level.platforms.at(-1)!;
+    expect(p).toEqual({ ...p0, x: p0.x + 10, y: p0.y + 10 });
+  });
+});
+
+describe('repairLevel', () => {
+  it('ergänzt fehlende Maße kaputter Entwürfe', () => {
+    const l = newLevel();
+    const broken = {
+      ...l,
+      platforms: [{ x: 5, y: 6 } as never, ...l.platforms],
+      hazards: [{ kind: 'tinsel', rect: { x: 1, y: 2 } } as never],
+      icicles: [{ x: 1, y: 2 } as never],
+    };
+    const r = repairLevel(broken);
+    expect(() => ok(r)).not.toThrow();
+    expect(r.platforms[0]).toMatchObject({ x: 5, y: 6 });
+    expect(repairLevel(l)).toEqual(l);
   });
 });
 
