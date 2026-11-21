@@ -19,6 +19,7 @@ import { idOfFile } from './savePlan';
 import { PointerTool, type EditorAction, type Mods } from './pointer';
 import { EditorOverlay } from './overlay';
 import { EditorUi, PALETTE, type TopAction } from './panels';
+import { RenderGate } from './renderGate';
 
 export interface EditorHost {
   view: GameView;
@@ -58,6 +59,8 @@ export class Editor {
   private levelPanel = false;
   private fromArea: number | null = null;
   private dirtyView = true;
+  /** Zeichnen nur bei Änderungen (Leerlauf: keine Bilder). */
+  private readonly gate = new RenderGate();
   private lastBackdrop = '';
   private checks: SolutionCheck | null = null;
   private checkTimer = 0;
@@ -107,6 +110,8 @@ export class Editor {
     this.visible = true;
     const v = this.host.view;
     v.editMode = true;
+    v.setManualRender(true);
+    this.gate.invalidate('view');
     this.lastBackdrop = '';
     this.dirtyView = true;
     this.overlay.container.visible = true;
@@ -126,6 +131,7 @@ export class Editor {
     if (this.visible) this.doc = { ...this.doc, camera: this.host.view.cameraState() };
     this.save();
     this.visible = false;
+    this.host.view.setManualRender(false);
     this.pointer.cancel();
     this.overlay.clear();
     this.overlay.container.visible = false;
@@ -133,14 +139,20 @@ export class Editor {
     this.ui.hideStart();
   }
 
+  /** Vom App-Takt jedes Bild aufgerufen; zeichnet nur, wenn sich etwas geändert hat. */
   render(): void {
-    if (!this.visible) return;
+    if (!this.visible || !this.gate.take()) return;
     if (this.dirtyView) this.rebuildView();
     const v = this.host.view;
-    v.renderStill(this.still);
+    v.renderStill(this.still, false);
     const cam = v.camera;
     const warned = this.issues.filter((i) => i.ref).map((i) => i.ref!);
     this.overlay.draw(this.doc.level, this.selected, cam.scale, { x: cam.left, y: cam.top, w: cam.viewW, h: cam.viewH }, this.grid, warned);
+    v.renderNow();
+  }
+
+  private invalidate(): void {
+    this.gate.invalidate('view');
   }
 
   private rebuildView(): void {
@@ -204,6 +216,9 @@ export class Editor {
   private setLevel(l: LevelData, commit: boolean): void {
     if (l === this.doc.level && !commit) return;
     this.doc = { ...this.doc, level: l };
+    this.invalidate();
+    // Vorschau beim Ziehen: nur die Editor-Ebene folgt; die Welt wird erst beim Loslassen neu gebaut.
+    if (!commit) return;
     this.dirtyView = true;
     if (commit) {
       this.state.commit(l);
@@ -220,8 +235,8 @@ export class Editor {
         case 'select': this.selected = a.ref; this.levelPanel = false; this.refreshUi(); break;
         case 'preview': this.setLevel(a.level, false); break;
         case 'commit': this.setLevel(a.level, true); break;
-        case 'pan': this.host.view.panBy(a.dx, a.dy); break;
-        case 'zoom': this.host.view.zoomAt(a.f, a.x, a.y); break;
+        case 'pan': this.host.view.panBy(a.dx, a.dy); this.invalidate(); break;
+        case 'zoom': this.host.view.zoomAt(a.f, a.x, a.y); this.invalidate(); break;
         case 'place': {
           const r = addElement(this.doc.level, a.kind, a.at, a.variant);
           this.selected = r.ref;
@@ -407,6 +422,7 @@ export class Editor {
   }
 
   private refreshUi(): void {
+    this.invalidate();
     const l = this.doc.level;
     this.issues = levelIssues(l);
     this.ui.setTop({
@@ -466,9 +482,11 @@ export class Editor {
       e.preventDefault();
       const p = rel(e as unknown as PointerEvent);
       this.host.view.zoomAt(Math.pow(1.15, -e.deltaY / 100), p.x, p.y);
+      this.invalidate();
     }, { passive: false });
     el.addEventListener('contextmenu', (e) => { if (this.visible) e.preventDefault(); });
     window.addEventListener('keydown', (e) => this.keyDown(e));
+    window.addEventListener('resize', () => this.invalidate());
     window.addEventListener('keyup', (e) => { if (e.code === 'Space') this.spaceHeld = false; });
   }
 
@@ -501,6 +519,7 @@ export class Editor {
   private zoomStep(f: number): void {
     const c = this.host.view.camera;
     this.host.view.zoomAt(f, c.screenW / 2, c.screenH / 2);
+    this.invalidate();
   }
 }
 

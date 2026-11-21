@@ -78,7 +78,7 @@ export class EditorOverlay {
 
     if (selected) {
       const b = elementBounds(l, selected);
-      g.rect(b.x, b.y, b.w, b.h).stroke({ width: px(3), color: SELECT });
+      g.rect(b.x, b.y, b.w, b.h).fill({ color: SELECT, alpha: 0.12 }).stroke({ width: px(3), color: SELECT });
       for (const h of handlesFor(l, selected)) {
         g.circle(h.pos.x, h.pos.y, px(8)).fill({ color: 0xffffff }).stroke({ width: px(2.5), color: 0x1a2350 });
       }
