@@ -22,7 +22,7 @@ import { EditorOverlay } from './overlay';
 import { EditorUi, PALETTE, type TopAction } from './panels';
 import { RenderGate } from './renderGate';
 import { layoutFor } from './layout';
-import { confirmDialog } from '../ui/dialog';
+import { confirmDialog, textDialog } from '../ui/dialog';
 import { Progress, progressKey } from '../app/progress';
 import { Prefs } from './prefs';
 import { reachFrom } from './jumpReach';
@@ -32,7 +32,8 @@ export interface EditorHost {
   view: GameView;
   uiRoot: HTMLElement;
   stageHost: HTMLElement;
-  startTest(level: LevelData, fromArea: number | null, onBack: (rec: Recording) => void): void;
+  /** progressKey: Sterne/Rekord der Probefahrt zählen für dieses eigene Level (Herausforderung beim Teilen). */
+  startTest(level: LevelData, fromArea: number | null, onBack: (rec: Recording) => void, progressKey?: string): void;
   close(): void;
   toast(text: string, ms?: number): void;
 }
@@ -401,20 +402,29 @@ export class Editor {
     this.host.toast('Tinte = 1,5 × deine Lösung');
   }
 
-  /** Teilen (Dialog folgt in Task 10): nur, wenn das Level selbst geschafft wurde. */
-  private share(): void {
+  /** Teilen: nur, wenn das Level selbst geschafft wurde (gemerkte Lösung kommt in jedem Abschnitt an). */
+  private async share(): Promise<void> {
     if (!checkSolution(this.doc.level, this.doc.solution).ok) {
       this.host.toast('Erst einmal selbst schaffen, dann kannst du teilen!', 2500);
       return;
     }
-    this.host.toast('Teilen kommt gleich', 1500);
+    if (this.doc.level.name === 'Neues Level' || !this.doc.level.name.trim()) {
+      const name = await textDialog(this.host.uiRoot, { title: 'Wie heißt dein Level?', value: '', max: 30, ok: 'Weiter' });
+      if (!name) return;
+      this.setLevel(applyLevelField(this.doc.level, 'name', name), true);
+    }
+    const progress = new Progress(store()).get(this.doc.level, progressKey.mine(this.uid));
+    const { openShareDialog } = await import('../share/shareDialog');
+    await openShareDialog(this.host.uiRoot, {
+      level: this.doc.level, from: this.prefs.get().senderName, challengeInk: progress.stars === 3 ? progress.bestInk : null,
+    }, (n) => this.prefs.set({ senderName: n }));
   }
 
   private test(): void {
     if (this.issues.some((i) => i.level === 'error')) { this.host.toast('Erst die Fehler in der Liste beheben', 2200); return; }
     this.hide();
     const level = this.doc.level;
-    this.host.startTest(level, this.fromArea, (rec) => this.returnFromTest(rec));
+    this.host.startTest(level, this.fromArea, (rec) => this.returnFromTest(rec), progressKey.mine(this.uid));
   }
 
   private returnFromTest(rec: Recording): void {
@@ -511,7 +521,7 @@ export class Editor {
       }
       case 'menu': this.ui.toggleMenu(); break;
       case 'delete': void this.deleteLevel(); break;
-      case 'share': this.share(); break;
+      case 'share': void this.share(); break;
       case 'issues': break;
       case 'mode': {
         const mode = this.prefs.get().mode === 'pro' ? 'simple' : 'pro';

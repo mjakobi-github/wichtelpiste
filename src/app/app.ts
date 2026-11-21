@@ -53,7 +53,7 @@ function consumeReopen(): boolean {
 type PlayTarget = { kind: 'menu'; idx: number } | { kind: 'mine'; uid: string } | { kind: 'gift'; key: string };
 
 /** Laufende Probefahrt aus dem Editor. */
-interface TestRun { level: LevelData; fromArea: number | null; recorder: Recorder; onBack: (rec: Recording) => void }
+interface TestRun { level: LevelData; fromArea: number | null; recorder: Recorder; onBack: (rec: Recording) => void; progressKey?: string }
 
 /** Verdrahtet Simulation, Darstellung, Oberfläche und Audio. */
 export class App {
@@ -188,6 +188,16 @@ export class App {
 
   // ------------------------------------------------------------ Geteilte Links
 
+  /** Geschenktes Level mit eigenem Rekord zurückschicken. */
+  private async sendBack(level: LevelData, inkUsed: number): Promise<void> {
+    const { Prefs } = await import('../editor/prefs');
+    let store: Storage | null = null;
+    try { store = window.localStorage; } catch { store = null; }
+    const prefs = new Prefs(store);
+    const { openShareDialog } = await import('../share/shareDialog');
+    await openShareDialog(this.uiRoot, { level, from: prefs.get().senderName, challengeInk: inkUsed }, (n) => prefs.set({ senderName: n }));
+  }
+
   /** #l=… in der Adresse: Level als Geschenk speichern, Karte zeigen, Adresse aufräumen. */
   private async checkHash(): Promise<void> {
     const r = await receiveFromHash(window.location.hash, this.gifts);
@@ -221,7 +231,7 @@ export class App {
         view: this.view,
         uiRoot: this.uiRoot,
         stageHost: this.stageHost,
-        startTest: (level, fromArea, onBack) => void this.startTest(level, fromArea, onBack),
+        startTest: (level, fromArea, onBack, key) => void this.startTest(level, fromArea, onBack, undefined, key),
         close: () => { this.editor?.hide(); this.openTitle(); },
         toast: (t, ms) => this.hud.toast(t, ms),
       };
@@ -235,9 +245,9 @@ export class App {
   }
 
   /** recorder: beim Neustart weiterverwenden, damit schon geschaffte Abschnitte nicht verloren gehen. */
-  private async startTest(level: LevelData, fromArea: number | null, onBack: (rec: Recording) => void, recorder?: Recorder): Promise<void> {
+  private async startTest(level: LevelData, fromArea: number | null, onBack: (rec: Recording) => void, recorder?: Recorder, progressKey?: string): Promise<void> {
     const { Recorder } = await import('../editor/recorder');
-    this.testRun = { level, fromArea, recorder: recorder ?? new Recorder(level), onBack };
+    this.testRun = { level, fromArea, recorder: recorder ?? new Recorder(level), onBack, progressKey };
     this.editor?.hide();
     this.view.editMode = false;
     this.sim = new Simulation(level);
@@ -267,7 +277,7 @@ export class App {
 
   private restartCurrent(a: ScreenAction): void {
     const run = this.testRun;
-    if (run) void this.startTest(run.level, run.fromArea, run.onBack, run.recorder);
+    if (run) void this.startTest(run.level, run.fromArea, run.onBack, run.recorder, run.progressKey);
     else void this.startTarget(this.target, a);
   }
 
@@ -295,7 +305,11 @@ export class App {
     this.hideGameUi();
     this.hud.show(true);
     if (this.testRun) {
-      this.showOverlay((el) => renderWin(el, { result: r, newBestInk: false, bestInk: null, hasNext: false, backLabel: 'Zurück zum Editor' }, {
+      // Ganze Probefahrt ab Start: zählt als eigener Rekord (Herausforderung beim Teilen)
+      const key = this.testRun.fromArea === null ? this.testRun.progressKey : undefined;
+      const rec = key ? this.progress.record(this.testRun.level, r, key) : null;
+      const best = key ? this.progress.get(this.testRun.level, key).bestInk : null;
+      this.showOverlay((el) => renderWin(el, { result: r, newBestInk: rec?.newBestInk ?? false, bestInk: best, hasNext: false, backLabel: 'Zurück zum Editor' }, {
         again: () => this.restartCurrent('again'),
         next: () => undefined,
         levels: () => this.backToEditor(),
@@ -313,7 +327,9 @@ export class App {
       newBestInk: rec.newBestInk,
       bestInk: this.progress.get(res.level, res.key).bestInk,
       hasNext: t.kind === 'menu' && t.idx + 1 < LEVELS.length,
+      extra: t.kind === 'gift' && r.stars === 3 ? `${'Zurückschicken'}` : undefined,
     }, {
+      extra: () => void this.sendBack(res.level, r.inkUsed),
       again: () => void this.startTarget(t, 'again'),
       next: () => { if (t.kind === 'menu') void this.startTarget({ kind: 'menu', idx: t.idx + 1 }, 'next'); },
       levels: () => this.openLevels('toLevels', tab),

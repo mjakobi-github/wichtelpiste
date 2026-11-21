@@ -242,3 +242,15 @@ button.danger-btn { color: #fff; background: #c8354a; border: none; font-weight:
 .gift-from { margin: 6px 0 0; color: var(--text); }
 .gift-challenge { color: var(--accent); font-weight: 600; font-size: 18px; }
 .gift-note { font-size: 13px; margin: 12px 0 0; }
+
+/* ---------------------------------------------------------------- Teilen */
+.share-panel { width: min(100%, 640px); text-align: left; }
+.share-panel h2 { text-align: center; }
+.share-name { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; color: var(--muted); }
+.share-name input, .share-link { flex: 1; font: inherit; font-size: 16px; min-height: 44px; padding: 0 10px; color: var(--text); background: var(--glass-strong); border: 1px solid var(--glass-edge); border-radius: 10px; user-select: text; -webkit-user-select: text; touch-action: auto; }
+.share-body { display: flex; gap: 16px; align-items: flex-start; }
+.share-qr { width: min(220px, 40vh); flex: none; }
+.share-qr svg { width: 100%; height: auto; display: block; border-radius: 8px; }
+.share-actions { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.share-hint { font-size: 14px; color: var(--muted); margin: 4px 0; }
+.share-error { color: var(--danger); }
