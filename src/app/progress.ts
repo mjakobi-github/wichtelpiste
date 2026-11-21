@@ -25,17 +25,18 @@ export class Progress {
     }
   }
 
-  get(level: LevelData): LevelProgress {
-    const e = this.data[level.id];
+  /** key: eigener Schlüssel für eigene/geschenkte Levels (siehe progressKey), sonst level.id. */
+  get(level: LevelData, key = level.id): LevelProgress {
+    const e = this.data[key];
     if (!e || e.hash !== levelHash(level)) return { stars: 0, bestInk: null };
     return { stars: e.stars, bestInk: e.bestInk };
   }
 
-  record(level: LevelData, r: WinResult): { newBestInk: boolean; improvedStars: boolean } {
-    const cur = this.get(level);
+  record(level: LevelData, r: WinResult, key = level.id): { newBestInk: boolean; improvedStars: boolean } {
+    const cur = this.get(level, key);
     const improvedStars = r.stars > cur.stars;
     const newBestInk = r.stars === 3 && (cur.bestInk === null || r.inkUsed < cur.bestInk);
-    this.data[level.id] = {
+    this.data[key] = {
       stars: improvedStars ? r.stars : cur.stars,
       bestInk: newBestInk ? r.inkUsed : cur.bestInk,
       hash: levelHash(level),
@@ -48,3 +49,9 @@ export class Progress {
     return { newBestInk, improvedStars };
   }
 }
+
+/** Fortschritts-Schlüssel, die nie mit Menü-Level-IDs kollidieren. */
+export const progressKey = {
+  mine: (uid: string): string => `mine:${uid}`,
+  gift: (key: string): string => `gift:${key}`,
+};

@@ -6,7 +6,8 @@ import { LEVEL_FILES } from '../levels';
 import type { Solution } from '../levels/solveRunner';
 import { checkSolution, type SolutionCheck } from '../levels/solutionCheck';
 import type { Recording } from './recorder';
-import { Draft, type DraftData } from './draft';
+import type { DraftData } from './draft';
+import { MyLevels } from '../app/library';
 import { EditorState } from './state';
 import { newLevel } from './template';
 import { addElement, duplicateElement, getElement, moveElement, repairLevel, type ElementRef } from './doc';
@@ -47,8 +48,11 @@ const backdropKey = (l: LevelData): string => `${l.theme.seed}/${l.theme.auroraH
 
 /** Level-Editor: Dokument + Verlauf, Zeiger/Tastatur, Darstellung über GameView, HTML-Leisten. */
 export class Editor {
-  private readonly draft = new Draft(store());
+  /** Eigene Levels; der Editor bearbeitet genau eines (uid) und speichert jede Änderung. */
+  private readonly lib = new MyLevels(store());
+  private uid = '';
   private doc: DraftData;
+  private saveWarned = false;
   /** Level + Lösung mit gemeinsamem Verlauf; doc.level/doc.solution spiegeln den Stand (doc.level auch Vorschau). */
   private state: EditorState;
   private still: Simulation;
@@ -78,8 +82,10 @@ export class Editor {
   /** resume: direkt mit dem Entwurf weitermachen (z. B. nach dem Neuladen durch Speichern), ohne Startdialog. */
   constructor(private readonly host: EditorHost, resume = false) {
     this.prefs = new Prefs(store(), host.view.quality === 'low');
-    this.doc = this.draft.load() ?? { level: newLevel(), solution: null, file: null, camera: null };
-    this.doc = { ...this.doc, level: repairLevel(this.doc.level) };
+    this.lib.migrateDraft();
+    const latest = this.lib.list()[0] ?? this.lib.create(newLevel(), null);
+    this.uid = latest.uid;
+    this.doc = { level: repairLevel(latest.level), solution: latest.solution, file: latest.file ?? null, camera: latest.camera ?? null };
     if (!this.doc.file) {
       // Seite wurde nach dem Speichern neu geladen, bevor die Antwort ankam: Datei am Inhalt wiederfinden.
       const same = LEVEL_FILES.find((f) => f.level.id === this.doc.level.id && JSON.stringify(f.level) === JSON.stringify(this.doc.level));
@@ -184,12 +190,16 @@ export class Editor {
   // ------------------------------------------------------------ Startdialog
 
   private showStart(): void {
-    const d = this.draft.load();
+    const d = this.lib.list()[0];
     this.ui.showStart({
       draft: d ? d.level.name : null,
       levels: LEVEL_FILES.map((f) => ({ file: f.file, name: f.level.name })),
     }, {
-      resume: () => this.ui.hideStart(),
+      resume: () => {
+        const m = this.lib.list()[0];
+        if (m && m.uid !== this.uid) this.open(m.uid);
+        this.ui.hideStart();
+      },
       fresh: () => this.load({ level: newLevel(), solution: null, file: null, camera: null }),
       open: (i) => {
         const f = LEVEL_FILES[i];
@@ -199,8 +209,18 @@ export class Editor {
     });
   }
 
-  private load(d: DraftData): void {
+  /** Eigenes Level zum Bearbeiten öffnen. */
+  private open(id: string): void {
+    const m = this.lib.get(id);
+    if (!m) return;
+    this.uid = '';
+    this.load({ level: repairLevel(m.level), solution: m.solution, file: m.file ?? null, camera: m.camera ?? null }, m.uid);
+  }
+
+  /** Lädt ein Level in den Editor; ohne uid wird es als neues eigenes Level angelegt. */
+  private load(d: DraftData, existingUid?: string): void {
     this.ui.hideStart();
+    this.uid = existingUid ?? this.lib.create(d.level, d.solution).uid;
     this.doc = d;
     this.state = new EditorState(d.level, d.solution);
     this.selected = null;
@@ -424,7 +444,13 @@ export class Editor {
   }
 
   private save(): void {
-    this.draft.save(this.doc);
+    if (!this.uid) return;
+    const r = this.lib.save({ uid: this.uid, level: this.doc.level, solution: this.doc.solution, updatedAt: Date.now(), file: this.doc.file, camera: this.doc.camera });
+    if (!r.ok && !this.saveWarned) {
+      this.saveWarned = true;
+      this.host.toast(r.error, 4000);
+    }
+    if (r.ok) this.saveWarned = false;
   }
 
   // ------------------------------------------------------------ Oberfläche
