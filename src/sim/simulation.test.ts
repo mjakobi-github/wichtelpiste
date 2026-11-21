@@ -80,21 +80,18 @@ describe('Simulation', () => {
     expect(sim.sled.pos.x).toBeCloseTo(300, 0);
   });
 
-  it('Beweger-Uhr startet bei jedem LOS neu', () => {
+  it('Beweger-Uhr läuft beim LOS weiter (Moment abpassen), springt beim Einsteigen auf 0', () => {
     const sim = new Simulation(level({
       movers: [{ kind: 'crow', radius: 10, path: { type: 'circle', center: { x: 1500, y: 100 }, radius: 80, period: 3 } }],
     }));
     sim.boardForTest(0);
+    expect(sim.moverClock).toBe(0);
     runUntil(sim, 0.7, IDLE);
+    const before = sim.moverClock;
     sim.command({ type: 'launch' });
     sim.step(DT, IDLE);
-    const first = sim.moverPositions();
-    runUntil(sim, 1.3, IDLE);
-    sim.command({ type: 'retry' });
-    sim.step(DT, IDLE);
-    sim.command({ type: 'launch' });
-    sim.step(DT, IDLE);
-    expect(sim.moverPositions()).toEqual(first);
+    expect(sim.phase).toBe('ride');
+    expect(sim.moverClock).toBeCloseTo(before + DT, 6);
   });
 
   it('leere Tinte meldet nur inkEmpty, kein blocked bei den folgenden Zügen', () => {

@@ -167,7 +167,7 @@ export class Simulation {
         this.phase = 'ride';
         this.giftSnapshot = [...this.giftTaken];
         this.rideSnapshot = { area: this.activeArea, checkpointIdx: this.checkpointIdx, respawnPos: { ...this.respawnPos } };
-        this.moverClock = 0;
+        // Bewegte Gefahren laufen beim LOS weiter: Der Moment des Starts ist das Timing.
         this.stuckTime = 0;
         this.bestReach = 0;
         this.stallTime = 0;

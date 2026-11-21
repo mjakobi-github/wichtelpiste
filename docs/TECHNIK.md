@@ -49,8 +49,9 @@ Regeln, die man kennen sollte:
   verfehlt sie (`missed`).
 - Crash während der Fahrt: Der Schlitten startet neu an der Station. Linien und
   Tinte bleiben, die Geschenke dieser Fahrt erscheinen wieder.
-- Bewegte Gefahren laufen auf einer eigenen Uhr, die bei LOS auf 0 springt.
-  Timing ist dadurch planbar und deterministisch.
+- Bewegte Gefahren laufen auf einer eigenen Uhr. Sie springt beim Einsteigen,
+  beim Neustart einer Fahrt und bei jedem Respawn auf 0, läuft bei LOS aber
+  weiter. Man passt also den richtigen Moment für LOS ab.
 - Der Schornstein nimmt erst ab einem Geschenk an.
 
 ## 3. Levelformat v1 (`src/levels/*.json`)

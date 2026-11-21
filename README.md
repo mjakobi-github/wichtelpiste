@@ -60,8 +60,8 @@ Anfang an freigeschaltet.
 - **Harmlose Hindernisse:** Eiszapfen und Zuckerstangen sind fest. Man springt
   darüber oder fährt drumherum.
 - **Gefahren leuchten rot:** hängende Eiszapfen, Lametta, schwingende Glocken
-  und Krähen. Bewegte Gefahren zeigen beim Planen ihre Bahn als Punktlinie. Mit
-  jedem LOS beginnt ihr Takt neu, so kann man den richtigen Moment planen.
+  und Krähen. Bewegte Gefahren zeigen beim Planen ihre Bahn als Punktlinie. Sie
+  bewegen sich beim LOS ohne Sprung weiter, so passt man den richtigen Moment ab.
 - **Laternen:** Checkpoints. Sie leuchten auf, sobald man sie erreicht.
 
 ### Sterne und Bestwert
