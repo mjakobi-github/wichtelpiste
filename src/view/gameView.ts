@@ -26,6 +26,10 @@ const ZOOM_PLAN_DEFAULT = 0.85;
 const ZOOM_PLAN_MIN = 0.35;
 const ZOOM_PLAN_MAX = 2.5;
 const ZOOM_RATE = 4;
+const ZOOM_EDIT_MIN = 0.2;
+const ZOOM_EDIT_MAX = 2.5;
+/** Editor: so weit darf die Kamera über die Weltränder hinaus. */
+const EDIT_MARGIN = 300;
 
 /** Orchestriert die Darstellung: Hintergrund, Welt, Figuren, Effekte, Kamera, Qualität. */
 export class GameView {
@@ -69,6 +73,10 @@ export class GameView {
   private fpsAcc = { ms: 0, n: 0 };
   private sledWasGrounded = true;
   private sledAir = 0;
+  /** Editor: Kamera frei, keine Qualitäts-Abstufung, Beweger-Bahnen sichtbar. */
+  editMode = false;
+  /** Editor-Ebene (Umrisse, Griffe) mit derselben Kamera wie die Welt. */
+  readonly editorLayer = new Container();
 
   constructor(private readonly app: Application) {
     const params = new URLSearchParams(window.location.search);
@@ -89,7 +97,7 @@ export class GameView {
     });
     this.vignette = new Sprite(this.vignetteTex);
     this.bloomHost.addChild(this.glowWorld);
-    app.stage.addChild(this.backLayer, this.world, this.bloomHost, this.frontWorld, this.frontLayer, this.vignette, this.flights.container);
+    app.stage.addChild(this.backLayer, this.world, this.bloomHost, this.frontWorld, this.frontLayer, this.vignette, this.flights.container, this.editorLayer);
 
     this.bloom = new Bloom(this.bloomHost);
     if (this.debug) {
@@ -151,6 +159,20 @@ export class GameView {
   }
 
   async load(level: LevelData): Promise<void> {
+    this.buildWorld(level, false);
+    this.camera.zoom = ZOOM_FOOT;
+    this.camera.updateScale();
+    this.camera.jump(level.spawn);
+    this.panned = false;
+  }
+
+  /** Editor: Welt neu aufbauen, Kamera bleibt; Kulisse nur neu, wenn nötig. */
+  showLevel(level: LevelData, opts: { keepBackdrop: boolean }): void {
+    this.buildWorld(level, opts.keepBackdrop && this.backdrop !== null);
+    this.camera.updateScale();
+  }
+
+  private buildWorld(level: LevelData, keepBackdrop: boolean): void {
     this.level = level;
     this.setWorldVisible(true);
     this.debug?.load(level);
@@ -162,18 +184,47 @@ export class GameView {
     this.objGlow.addChild(this.objects.glow, this.hazards.glow);
     this.flights.clear();
 
-    this.mountBackdrop(level.theme);
+    if (!keepBackdrop) this.mountBackdrop(level.theme);
 
     this.roofs?.destroy();
     this.roofs = new Roofs(level);
     this.roofLayer.addChild(this.roofs.container);
     this.roofLights.addChild(this.roofs.lights);
     this.particles.clear();
+  }
 
-    this.camera.zoom = ZOOM_FOOT;
+  /** Editor: zeichnet den Ruhezustand der Simulation mit freier Kamera (kein Schritt, keine Ereignisse). */
+  renderStill(sim: Simulation): void {
+    if (!this.level) return;
+    const now = performance.now();
+    const dt = Math.min(0.1, (now - this.lastTime) / 1000);
+    this.lastTime = now;
+    const t = now / 1000;
+    const cam = this.camera;
+    cam.updateScale();
+    cam.clampLoose({ w: this.level.worldW, h: this.level.worldH }, EDIT_MARGIN);
+    for (const w of [this.world, this.glowWorld, this.frontWorld, this.editorLayer]) {
+      w.scale.set(cam.scale);
+      w.position.set(-cam.left * cam.scale, -cam.top * cam.scale);
+    }
+    this.backdrop?.update(cam.cx, cam.cy, t);
+    this.roofs?.update(t);
+    this.strokes.update(sim.ink.strokes, t);
+    this.objects?.update(sim, t, dt);
+    this.hazards?.update(sim, t, true);
+    this.renderActors(sim, 1, dt, t);
+    this.particles.update(dt);
+  }
+
+  cameraState(): { cx: number; cy: number; zoom: number } {
+    return { cx: this.camera.cx, cy: this.camera.cy, zoom: this.camera.zoom };
+  }
+
+  setCameraState(s: { cx: number; cy: number; zoom: number }): void {
+    this.camera.cx = s.cx;
+    this.camera.cy = s.cy;
+    this.camera.zoom = clamp(s.zoom, ZOOM_EDIT_MIN, ZOOM_EDIT_MAX);
     this.camera.updateScale();
-    this.camera.jump(level.spawn);
-    this.panned = false;
   }
 
   render(sim: Simulation, alpha: number, events: SimEvent[]): void {
@@ -318,21 +369,24 @@ export class GameView {
     this.panned = true;
     this.camera.cx -= dx / this.camera.scale;
     this.camera.cy -= dy / this.camera.scale;
-    if (this.level) this.camera.clampTo({ w: this.level.worldW, h: this.level.worldH });
+    if (!this.level) return;
+    if (this.editMode) this.camera.clampLoose({ w: this.level.worldW, h: this.level.worldH }, EDIT_MARGIN);
+    else this.camera.clampTo({ w: this.level.worldW, h: this.level.worldH });
   }
 
   /** Zoomt beim Planen um Faktor f; der Bildschirmpunkt (x, y) bleibt fest. */
   zoomAt(f: number, x: number, y: number): void {
-    if (!this.planning || !this.level) return;
+    if ((!this.planning && !this.editMode) || !this.level) return;
     const cam = this.camera;
     const before = cam.screenToWorld(x, y);
-    this.planZoom = clamp(cam.zoom * f, ZOOM_PLAN_MIN, ZOOM_PLAN_MAX);
-    cam.zoom = this.planZoom;
+    if (this.editMode) cam.zoom = clamp(cam.zoom * f, ZOOM_EDIT_MIN, ZOOM_EDIT_MAX);
+    else cam.zoom = this.planZoom = clamp(cam.zoom * f, ZOOM_PLAN_MIN, ZOOM_PLAN_MAX);
     cam.updateScale();
     const after = cam.screenToWorld(x, y);
     cam.cx += before.x - after.x;
     cam.cy += before.y - after.y;
-    cam.clampTo({ w: this.level.worldW, h: this.level.worldH });
+    if (this.editMode) cam.clampLoose({ w: this.level.worldW, h: this.level.worldH }, EDIT_MARGIN);
+    else cam.clampTo({ w: this.level.worldW, h: this.level.worldH });
     this.panned = true;
   }
 

@@ -46,6 +46,17 @@ export class Camera {
     this.cy = clamp(this.cy, hh - 200, Math.max(hh - 200, world.h - hh));
   }
 
+  /** Editor: Sicht darf bis `margin` über die Weltränder hinaus; ist die Welt kleiner, wird zentriert. */
+  clampLoose(world: { w: number; h: number }, margin: number): void {
+    const fit = (c: number, size: number, view: number): number => {
+      const lo = -margin + view / 2;
+      const hi = size + margin - view / 2;
+      return lo > hi ? size / 2 : clamp(c, lo, hi);
+    };
+    this.cx = fit(this.cx, world.w, this.viewW);
+    this.cy = fit(this.cy, world.h, this.viewH);
+  }
+
   screenToWorld(x: number, y: number): Vec2 {
     return { x: this.left + x / this.scale, y: this.top + y / this.scale };
   }
