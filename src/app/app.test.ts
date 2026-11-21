@@ -13,6 +13,12 @@ describe('nextScreen', () => {
     ['won', 'next', 'play'],
     ['won', 'again', 'play'],
     ['won', 'toLevels', 'levels'],
+    ['title', 'openEditor', 'editor'],
+    ['editor', 'testPlay', 'play'],
+    ['play', 'toEditor', 'editor'],
+    ['pause', 'toEditor', 'editor'],
+    ['won', 'toEditor', 'editor'],
+    ['editor', 'toLevels', 'levels'],
   ] as const)('%s + %s → %s', (s, a, want) => {
     expect(nextScreen(s, a)).toBe(want);
   });

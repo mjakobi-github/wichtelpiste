@@ -3,7 +3,7 @@ import { formatInk } from '../../app/flow';
 import { icon } from '../icons';
 import { bindActions } from './common';
 
-export interface WinInfo { result: WinResult; newBestInk: boolean; bestInk: number | null; hasNext: boolean }
+export interface WinInfo { result: WinResult; newBestInk: boolean; bestInk: number | null; hasNext: boolean; backLabel?: string }
 
 /** Siegbildschirm: Sterne fliegen nacheinander ein, Geschenke, Tinte, Rekord. */
 export function renderWin(el: HTMLElement, w: WinInfo, h: { again: () => void; next: () => void; levels: () => void }): void {
@@ -24,7 +24,7 @@ export function renderWin(el: HTMLElement, w: WinInfo, h: { again: () => void; n
     <div class="row">
       <button data-a="again">${icon('restart')} Nochmal</button>
       ${w.hasNext ? `<button class="primary" data-a="next">${icon('play')} Weiter</button>` : ''}
-      <button data-a="levels">${icon('levels')} Levelauswahl</button>
+      <button data-a="levels">${icon('levels')} ${w.backLabel ?? 'Levelauswahl'}</button>
     </div>
   </div>`;
   bindActions(el, { again: h.again, next: h.next, levels: h.levels });

@@ -1,13 +1,15 @@
-/** Bildschirm-Fluss (rein, ohne DOM): Titel → Levelauswahl → Spiel ⇄ Pause → Sieg. */
-export type Screen = 'title' | 'levels' | 'play' | 'pause' | 'won';
-export type ScreenAction = 'start' | 'pickLevel' | 'pause' | 'resume' | 'restart' | 'toLevels' | 'win' | 'again' | 'next';
+/** Bildschirm-Fluss (rein, ohne DOM): Titel → Levelauswahl → Spiel ⇄ Pause → Sieg; Editor ⇄ Probespielen. */
+export type Screen = 'title' | 'levels' | 'play' | 'pause' | 'won' | 'editor';
+export type ScreenAction = 'start' | 'pickLevel' | 'pause' | 'resume' | 'restart' | 'toLevels' | 'win' | 'again' | 'next'
+  | 'openEditor' | 'testPlay' | 'toEditor';
 
 const FLOW: Record<Screen, Partial<Record<ScreenAction, Screen>>> = {
-  title: { start: 'levels' },
+  title: { start: 'levels', openEditor: 'editor' },
   levels: { pickLevel: 'play' },
-  play: { pause: 'pause', win: 'won', restart: 'play', toLevels: 'levels' },
-  pause: { resume: 'play', restart: 'play', toLevels: 'levels' },
-  won: { again: 'play', next: 'play', toLevels: 'levels' },
+  play: { pause: 'pause', win: 'won', restart: 'play', toLevels: 'levels', toEditor: 'editor' },
+  pause: { resume: 'play', restart: 'play', toLevels: 'levels', toEditor: 'editor' },
+  won: { again: 'play', next: 'play', toLevels: 'levels', toEditor: 'editor' },
+  editor: { testPlay: 'play', toLevels: 'levels' },
 };
 
 export function nextScreen(s: Screen, action: ScreenAction): Screen {

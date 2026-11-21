@@ -20,11 +20,22 @@ import { renderWin } from '../ui/screens/win';
 import { Progress } from './progress';
 import { canPause, nextScreen, type Screen, type ScreenAction } from './flow';
 import { fullscreenSupported, toggleFullscreen } from '../ui/fullscreen';
+import type { LevelData } from '../sim/types';
+import type { Recorder, Recording } from '../editor/recorder';
+import type { Editor, EditorHost } from '../editor/editor';
 
 export { nextScreen, formatInk, type Screen } from './flow';
 
 /** Kulisse für Titel und Levelauswahl. */
 const MENU_THEME: Theme = { seed: 24, auroraHue: 150 };
+
+/** Editor im Dev-Server immer, auf der Seite nur mit ?editor. */
+function editorAllowed(): boolean {
+  return import.meta.env.DEV || new URLSearchParams(window.location.search).has('editor');
+}
+
+/** Laufende Probefahrt aus dem Editor. */
+interface TestRun { level: LevelData; fromArea: number | null; recorder: Recorder; onBack: (rec: Recording) => void }
 
 /** Verdrahtet Simulation, Darstellung, Oberfläche und Audio. */
 export class App {
@@ -41,6 +52,8 @@ export class App {
   private touch!: TouchControls;
   private overlay!: HTMLElement;
   private hints!: HintView;
+  private editor: Editor | null = null;
+  private testRun: TestRun | null = null;
 
   constructor(private readonly stageHost: HTMLElement, private readonly uiRoot: HTMLElement) {
     let store: Storage | null = null;
@@ -110,7 +123,7 @@ export class App {
   private openTitle(): void {
     this.screen = 'title';
     this.toMenu();
-    this.showOverlay((el) => renderTitle(el, () => this.openLevels('start')));
+    this.showOverlay((el) => renderTitle(el, () => this.openLevels('start'), editorAllowed() ? () => void this.openEditor() : null));
   }
 
   private openLevels(a: ScreenAction): void {
@@ -119,7 +132,67 @@ export class App {
     this.showOverlay((el) => renderLevelSelect(el, LEVELS, (lv) => this.progress.get(lv), (i) => void this.startLevel(i, 'pickLevel'), () => this.openTitle()));
   }
 
+  // ------------------------------------------------------------ Editor
+
+  private async openEditor(): Promise<void> {
+    if (!this.editor) {
+      const { Editor } = await import('../editor/editor');
+      const host: EditorHost = {
+        view: this.view,
+        uiRoot: this.uiRoot,
+        stageHost: this.stageHost,
+        startTest: (level, fromArea, onBack) => void this.startTest(level, fromArea, onBack),
+        close: () => { this.editor?.hide(); this.openLevels('toLevels'); },
+        toast: (t, ms) => this.hud.toast(t, ms),
+      };
+      this.editor = new Editor(host);
+    }
+    this.go('openEditor');
+    this.sim = null;
+    this.hideGameUi();
+    this.hideOverlay();
+    this.editor.show();
+  }
+
+  private async startTest(level: LevelData, fromArea: number | null, onBack: (rec: Recording) => void): Promise<void> {
+    const { Recorder } = await import('../editor/recorder');
+    this.testRun = { level, fromArea, recorder: new Recorder(level), onBack };
+    this.editor?.hide();
+    this.view.editMode = false;
+    this.sim = new Simulation(level);
+    if (fromArea !== null) this.sim.boardForTest(fromArea);
+    await this.view.load(level);
+    this.input.reset();
+    this.hideOverlay();
+    this.hud.show(true);
+    this.toolbar.setPauseVisible(true);
+    this.setTool('draw');
+    this.screen = 'play';
+    this.hud.banner(`Probe: ${level.name}`, fromArea !== null ? `Ab Station ${fromArea + 1}` : 'Sammle die Geschenke und bring sie zum Schornstein');
+  }
+
+  /** Probefahrt beenden, zurück in den Editor (mit aufgezeichneter Lösung). */
+  private backToEditor(): void {
+    const run = this.testRun;
+    if (!run || !this.editor) return;
+    this.testRun = null;
+    this.go('toEditor');
+    this.sim = null;
+    this.hideGameUi();
+    this.hideOverlay();
+    this.editor.show();
+    run.onBack(run.recorder.recording());
+  }
+
+  private restartCurrent(a: ScreenAction): void {
+    const run = this.testRun;
+    if (run) void this.startTest(run.level, run.fromArea, run.onBack);
+    else void this.startLevel(this.levelIdx, a);
+  }
+
   private async startLevel(idx: number, a: ScreenAction): Promise<void> {
+    this.testRun = null;
+    this.view.editMode = false;
     this.levelIdx = idx;
     const level = LEVELS[idx];
     this.sim = new Simulation(level);
@@ -135,11 +208,19 @@ export class App {
 
   private showWin(r: WinResult): void {
     this.go('win');
+    this.hideGameUi();
+    this.hud.show(true);
+    if (this.testRun) {
+      this.showOverlay((el) => renderWin(el, { result: r, newBestInk: false, bestInk: null, hasNext: false, backLabel: 'Zurück zum Editor' }, {
+        again: () => this.restartCurrent('again'),
+        next: () => undefined,
+        levels: () => this.backToEditor(),
+      }));
+      return;
+    }
     const lv = LEVELS[this.levelIdx];
     const rec = this.progress.record(lv, r);
     if (rec.newBestInk) window.setTimeout(() => { if (this.screen === 'won') audio.record(); }, 1500);
-    this.hideGameUi();
-    this.hud.show(true);
     this.showOverlay((el) => renderWin(el, {
       result: r,
       newBestInk: rec.newBestInk,
@@ -158,12 +239,13 @@ export class App {
     this.send({ type: 'strokeEnd' });
     this.hud.hideBanner();
     this.hints.show(null);
+    const test = this.testRun !== null;
     this.showOverlay((el) => renderPause(el, audio.muted, {
       resume: () => this.resume(),
-      restart: () => void this.startLevel(this.levelIdx, 'restart'),
-      levels: () => this.openLevels('toLevels'),
+      restart: () => this.restartCurrent('restart'),
+      levels: () => (test ? this.backToEditor() : this.openLevels('toLevels')),
       toggleSound: () => { audio.setMuted(!audio.muted); return audio.muted; },
-    }));
+    }, test ? 'Zurück zum Editor' : undefined));
   }
 
   private resume(): void {
@@ -215,6 +297,7 @@ export class App {
   }
 
   private key(code: string, e: KeyboardEvent): void {
+    if (this.screen === 'editor') return;
     if (code === 'Escape') {
       if (this.screen === 'play') this.openPause();
       else if (this.screen === 'pause') this.resume();
@@ -243,6 +326,7 @@ export class App {
   private update(dt: number): void {
     if (this.screen !== 'play' || !this.sim) return;
     const ev = this.sim.step(dt, this.input.read());
+    this.testRun?.recorder.onEvents(this.sim, ev);
     this.events.push(...ev);
     for (const e of ev) this.react(e);
   }
@@ -280,6 +364,7 @@ export class App {
   }
 
   private render(alpha: number): void {
+    if (this.screen === 'editor') { this.editor?.render(); return; }
     const sim = this.sim;
     if (!sim) { this.view.renderScenery(); return; }
     this.view.render(sim, alpha, this.events);
@@ -289,7 +374,7 @@ export class App {
     this.toolbar.setPlanning(planning, sim.level.areas[sim.activeArea].boost !== 0);
     this.touch.show(sim.mode === 'foot');
     this.toolbar.setReplan(sim.canReplan);
-    this.hud.update(sim, this.levelIdx + 1);
+    this.hud.update(sim, this.testRun ? 0 : this.levelIdx + 1);
     const foot = sim.mode === 'foot';
     const at = foot ? sim.player.center : sim.level.stations[sim.activeArea].pos;
     const strokes = sim.ink.strokes.filter((s) => s.area === sim.activeArea).length;

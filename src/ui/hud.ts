@@ -36,7 +36,7 @@ export class Hud {
   update(sim: Simulation, levelNumber: number): void {
     const lv = sim.level;
     const n = lv.stations.length;
-    this.label.textContent = `${levelNumber}. ${lv.name}${n > 1 && sim.mode === 'sled' ? ` · Abschnitt ${sim.activeArea + 1}/${n}` : ''}`;
+    this.label.textContent = `${levelNumber > 0 ? `${levelNumber}.` : 'Probe:'} ${lv.name}${n > 1 && sim.mode === 'sled' ? ` · Abschnitt ${sim.activeArea + 1}/${n}` : ''}`;
     const count = `${sim.giftTaken.filter(Boolean).length} / ${lv.gifts.length}`;
     if (this.giftCount.textContent !== count) {
       if (this.giftCount.textContent) {
