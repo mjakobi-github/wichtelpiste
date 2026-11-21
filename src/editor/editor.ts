@@ -398,8 +398,15 @@ export class Editor {
     if (!c) return;
     const next = suggestBudgets(this.doc.level, c.areas);
     const areas = this.doc.level.areas.map((a, i) => (c.areas[i]?.ok ? next[i] : a));
-    this.setLevel({ ...this.doc.level, areas }, true);
+    this.adjustBudgets(areas);
     this.host.toast('Tinte = 1,5 × deine Lösung');
+  }
+
+  /** Tinte anpassen; Sterne/Rekord des eigenen Levels gehen dabei mit (die Lösung bleibt gültig). */
+  private adjustBudgets(areas: LevelData['areas']): void {
+    const before = this.doc.level;
+    this.setLevel({ ...before, areas }, true);
+    new Progress(store()).rekey(before, this.doc.level, progressKey.mine(this.uid));
   }
 
   /** Teilen: nur, wenn das Level selbst geschafft wurde (gemerkte Lösung kommt in jedem Abschnitt an). */
@@ -414,10 +421,16 @@ export class Editor {
       this.setLevel(applyLevelField(this.doc.level, 'name', name), true);
     }
     const progress = new Progress(store()).get(this.doc.level, progressKey.mine(this.uid));
+    const meta = { from: this.prefs.get().senderName, challengeInk: progress.stars === 3 ? progress.bestInk : null };
+    // Geprüft wird, was beim Empfänger ankommt (der Link rundet Werte)
+    const { shareableCheck } = await import('../share/shareCheck');
+    const sc = await shareableCheck(this.doc.level, this.doc.solution, meta);
+    if (!sc.ok) {
+      this.host.toast('Nach dem Teilen käme deine Linie nicht mehr an – Raster einschalten und nochmal probespielen', 4000);
+      return;
+    }
     const { openShareDialog } = await import('../share/shareDialog');
-    await openShareDialog(this.host.uiRoot, {
-      level: this.doc.level, from: this.prefs.get().senderName, challengeInk: progress.stars === 3 ? progress.bestInk : null,
-    }, (n) => this.prefs.set({ senderName: n }));
+    await openShareDialog(this.host.uiRoot, sc.payload, (n) => this.prefs.set({ senderName: n }));
   }
 
   private test(): void {
@@ -436,7 +449,7 @@ export class Editor {
         const c = checkSolution(this.doc.level, this.doc.solution);
         const next = suggestBudgets(this.doc.level, c.areas);
         const areas = this.doc.level.areas.map((a, i) => (c.areas[i]?.ok ? next[i] : a));
-        this.setLevel({ ...this.doc.level, areas }, true);
+        this.adjustBudgets(areas);
         this.host.toast('Geschafft! Tinte angepasst', 2000);
       } else {
         this.host.toast(n === 1 ? 'Lösung für einen Abschnitt gemerkt' : `Lösung für ${n} Abschnitte gemerkt`, 2000);

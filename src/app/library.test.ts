@@ -75,3 +75,18 @@ describe('Progress mit eigenen Schlüsseln', () => {
     expect(progressKey.mine('u1')).toBe('mine:u1');
   });
 });
+
+describe('Progress.rekey', () => {
+  it('Rekord bleibt, wenn nur die Tinte großzügiger wird', () => {
+    const s = mem();
+    const p = new Progress(s);
+    const a = newLevel();
+    const b = { ...a, areas: [{ ink: 650, boost: 0 }] };
+    p.record(a, { stars: 3, gifts: 1, giftTotal: 1, inkUsed: 412 }, progressKey.mine('u'));
+    p.rekey(a, b, progressKey.mine('u'));
+    expect(p.get(b, progressKey.mine('u'))).toEqual({ stars: 3, bestInk: 412 });
+    // fremder Stand wird nicht übernommen
+    p.rekey({ ...a, name: 'anders' }, { ...b, name: 'x' }, progressKey.mine('u'));
+    expect(p.get({ ...b, name: 'x' }, progressKey.mine('u')).stars).toBe(0);
+  });
+});

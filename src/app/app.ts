@@ -19,6 +19,7 @@ import { showGiftCard } from '../ui/screens/giftCard';
 import { confirmDialog } from '../ui/dialog';
 import { Gifts, MyLevels } from './library';
 import { receiveFromHash } from './receive';
+import { playableError } from './playable';
 import { progressKey } from './progress';
 import { renderPause } from '../ui/screens/pause';
 import { renderWin } from '../ui/screens/win';
@@ -284,6 +285,8 @@ export class App {
   private async startTarget(t: PlayTarget, _a: ScreenAction = 'pickLevel'): Promise<void> {
     const r = this.resolve(t);
     if (!r) { this.hud.toast('Level nicht gefunden'); return; }
+    const bad = playableError(r.level);
+    if (bad) { this.hud.toast(bad, 3000); return; }
     this.testRun = null;
     this.view.editMode = false;
     this.target = t;

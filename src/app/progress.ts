@@ -32,6 +32,16 @@ export class Progress {
     return { stars: e.stars, bestInk: e.bestInk };
   }
 
+  /**
+   * Eintrag auf einen neuen Level-Stand umschreiben (z. B. nach großzügigerer Tinte): nur, wenn er zum alten Stand gehört.
+   */
+  rekey(from: LevelData, to: LevelData, key: string): void {
+    const e = this.data[key];
+    if (!e || e.hash !== levelHash(from)) return;
+    this.data[key] = { ...e, hash: levelHash(to) };
+    try { this.storage?.setItem(this.key, JSON.stringify(this.data)); } catch { /* Best-Effort */ }
+  }
+
   record(level: LevelData, r: WinResult, key = level.id): { newBestInk: boolean; improvedStars: boolean } {
     const cur = this.get(level, key);
     const improvedStars = r.stars > cur.stars;
