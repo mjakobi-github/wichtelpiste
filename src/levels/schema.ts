@@ -74,6 +74,9 @@ export function validateLevel(raw: unknown, source: string): LevelData {
     return { ink: budget(o.ink, `${p}.ink`), boost: budget(o.boost, `${p}.boost`) };
   });
   if (areas.length !== stations.length) fail('areas', `braucht genau einen Eintrag je Station (${stations.length})`);
+  if (Array.isArray(r.dismounts) && r.dismounts.length > areas.length) {
+    fail('dismounts', `höchstens eine Landezone je Abschnitt (${areas.length}); Abschnitt i landet in dismounts[i], ohne Eintrag am Schornstein`);
+  }
 
   const gifts = list(r.gifts, 'gifts', false, vec);
   if (gifts.length === 0) fail('gifts', 'braucht mindestens ein Geschenk');

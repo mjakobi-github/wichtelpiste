@@ -183,8 +183,13 @@ export class App {
       case 'checkpoint': audio.checkpoint(); this.hud.toast('Checkpoint!'); break;
       case 'board': this.setTool('draw'); break;
       case 'launch': audio.launch(); break;
-      case 'arrive': this.hud.toast(e.stuck ? 'Doch zu Fuß weiter … (oder zurück zum Zeichnen)' : 'Angekommen – Checkpoint!'); break;
-      case 'crash': audio.crash(); if (e.cause === 'stall') this.hud.toast('Der Schlitten kommt nicht weiter – nochmal planen'); break;
+      case 'arrive': this.hud.toast('Angekommen – Checkpoint!'); break;
+      case 'crash': {
+        audio.crash();
+        const msg = { stall: 'Der Schlitten kommt nicht weiter – nochmal planen', stuck: 'Festgefahren – nochmal planen', missed: 'Landezone verfehlt – nochmal planen' } as const;
+        if (e.cause in msg) this.hud.toast(msg[e.cause as keyof typeof msg], 2200);
+        break;
+      }
       case 'inkEmpty': this.hud.toast(e.boost ? 'Speedtinte aufgebraucht!' : 'Tinte aufgebraucht!'); break;
       case 'blocked': this.hud.toast('Hier kann man nicht zeichnen'); break;
       case 'refuse': audio.refuse(); this.hud.toast('Erst Geschenke sammeln!', 1800); break;

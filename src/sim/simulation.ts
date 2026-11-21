@@ -25,6 +25,8 @@ const STREAK_WINDOW = 2;
 /** Kommt der Schlitten so lange nicht weiter vom Start weg, startet die Fahrt neu (Schaukeln im Tal). */
 const STALL_TIME = 2.5;
 const STALL_PROGRESS = 10;
+/** So weit (px) darf der Schlitten über die Landezone hinaus, bevor die Fahrt als verfehlt gilt. */
+const MISS_MARGIN = 150;
 
 /**
  * Spielregeln und Zustand eines Levels, ohne DOM.
@@ -71,6 +73,11 @@ export class Simulation {
     this.giftTaken = level.gifts.map(() => false);
     this.giftSnapshot = [...this.giftTaken];
     this.springCooldown = level.springs.map(() => 0);
+  }
+
+  /** Ziel des Abschnitts: eigene Landezone (dismounts[i]) oder – ohne Eintrag – der Schornstein. */
+  targetZone(area = this.activeArea): Rect | null {
+    return this.level.dismounts[area] ?? null;
   }
 
   /** Darf man nach der Ankunft zurück an die letzte Station und neu planen? */
@@ -272,12 +279,22 @@ export class Simulation {
     });
 
     this.collectGifts(pos, ev);
-    if (this.checkDelivery(pos, ev)) return;
-
-    const zone = this.level.dismounts.find((d) => pointInRect(pos, d));
-    if (zone) {
-      this.dismountAt({ x: pos.x, y: Math.min(pos.y - 42, zone.y + zone.h - 38) }, false, ev);
-      return;
+    const zone = this.targetZone();
+    if (!zone) {
+      if (this.checkDelivery(pos, ev)) return;
+    } else {
+      if (pointInRect(pos, zone)) {
+        this.dismountAt({ x: pos.x, y: Math.min(pos.y - 42, zone.y + zone.h - 38) }, ev);
+        return;
+      }
+      const st = this.level.stations[this.activeArea].pos;
+      const dir = zone.x + zone.w / 2 >= st.x ? 1 : -1;
+      const past = dir > 0 ? pos.x > zone.x + zone.w + MISS_MARGIN : pos.x < zone.x - MISS_MARGIN;
+      if (past) {
+        ev.push({ type: 'crash', pos, cause: 'missed' });
+        this.restartRide();
+        return;
+      }
     }
 
     const reach = dist(pos, this.level.stations[this.activeArea].pos);
@@ -290,7 +307,10 @@ export class Simulation {
 
     if (s.speed < STUCK_SPEED) {
       this.stuckTime += dt;
-      if (this.stuckTime > STUCK_TIME) this.dismountAt({ x: pos.x, y: pos.y - PLAYER_TUNING.size.h }, true, ev);
+      if (this.stuckTime > STUCK_TIME) {
+        ev.push({ type: 'crash', pos, cause: 'stuck' });
+        this.restartRide();
+      }
       return;
     }
     this.stuckTime = 0;
@@ -310,7 +330,7 @@ export class Simulation {
     this.sled.reset(this.level.stations[this.activeArea].pos, { x: 0, y: 0 }, this.player.facing);
   }
 
-  private dismountAt(pos: Vec2, stuck: boolean, ev: SimEvent[]): void {
+  private dismountAt(pos: Vec2, ev: SimEvent[]): void {
     const v = this.sled.vel;
     this.mode = 'foot';
     this.phase = 'plan';
@@ -321,7 +341,7 @@ export class Simulation {
     this.respawnPos = { ...this.player.pos };
     this.moverClock = 0;
     this.lastRideArea = this.activeArea;
-    ev.push({ type: 'arrive', pos: { ...this.player.pos }, stuck });
+    ev.push({ type: 'arrive', pos: { ...this.player.pos } });
   }
 
   // ---------------------------------------------------------------- Gemeinsam

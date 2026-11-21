@@ -24,8 +24,9 @@ export type SimEvent =
   | { type: 'checkpoint'; pos: Vec2 }
   | { type: 'board'; area: number }
   | { type: 'launch' }
-  | { type: 'arrive'; pos: Vec2; stuck: boolean }
-  | { type: 'crash'; pos: Vec2; cause: 'fall' | 'hazard' | 'stall' }
+  | { type: 'arrive'; pos: Vec2 }
+  /** missed = über die Landezone hinaus, stuck = festgefahren, stall = Schaukeln ohne Fortschritt */
+  | { type: 'crash'; pos: Vec2; cause: 'fall' | 'hazard' | 'stall' | 'stuck' | 'missed' }
   | { type: 'spring'; pos: Vec2 }
   | { type: 'inkEmpty'; boost: boolean }
   | { type: 'blocked'; pos: Vec2 }

@@ -59,7 +59,7 @@ button:active { transform: scale(0.95); }
 .toolbtn.danger { border-color: rgba(255, 107, 107, 0.5); }
 .corner { position: absolute; top: calc(10px + var(--safe-t)); right: calc(12px + var(--safe-r)); display: flex; gap: 8px; }
 .corner .toolbtn { font-size: 22px; }
-.zoombar { position: absolute; right: calc(12px + var(--safe-r)); top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 8px; }
+.zoombar { position: absolute; left: calc(12px + var(--safe-l)); top: 55%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 8px; }
 .zoombar .toolbtn { font-size: 24px; font-weight: 700; }
 .replan {
   position: absolute; bottom: calc(24px + var(--safe-b)); left: 50%; transform: translateX(-50%);
@@ -67,12 +67,12 @@ button:active { transform: scale(0.95); }
 }
 .replan:active { transform: translateX(-50%) scale(0.95); }
 .launch {
-  position: absolute; bottom: calc(20px + var(--safe-b)); left: 50%; transform: translateX(-50%);
-  padding: 12px 28px; font-size: 22px; font-weight: 700; color: #2a1600;
+  position: absolute; bottom: calc(16px + var(--safe-b)); right: calc(14px + var(--safe-r));
+  padding: 10px 22px; font-size: 20px; font-weight: 700; color: #2a1600;
   background: linear-gradient(#ffe08a, #ffb347); border: none; box-shadow: 0 0 24px rgba(255, 200, 100, 0.7);
   animation: pulse 1.2s ease-in-out infinite;
 }
-.launch:active { transform: translateX(-50%) scale(0.95); }
+.launch:active { transform: scale(0.95); }
 @keyframes pulse { 50% { box-shadow: 0 0 40px rgba(255, 200, 100, 1); } }
 
 /* Touch */

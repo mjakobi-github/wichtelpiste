@@ -186,13 +186,51 @@ describe('Simulation', () => {
     expect(sim.phase).toBe('plan');
   });
 
-  it('Festgefahren: automatisches Aussteigen', () => {
+  it('Festgefahren vor der Landezone: Fahrt startet neu, kein Aussteigen', () => {
     const sim = new Simulation(level({ candies: [{ x: 340, y: 500, h: 60 }] }));
     sim.boardForTest(0);
     sim.command({ type: 'launch' });
-    const ev = runUntil(sim, 3, IDLE, (e) => e.type === 'arrive');
-    expect(ev.some((e) => e.type === 'arrive' && e.stuck)).toBe(true);
-    expect(sim.mode).toBe('foot');
+    const ev = runUntil(sim, 3, IDLE, (e) => e.type === 'crash');
+    expect(ev.some((e) => e.type === 'crash' && e.cause === 'stuck')).toBe(true);
+    expect(ev.some((e) => e.type === 'arrive')).toBe(false);
+    expect(sim.mode).toBe('sled');
+    expect(sim.phase).toBe('plan');
+  });
+
+  it('über die eigene Landezone hinaus: Fahrt startet neu (verfehlt)', () => {
+    // Landezone hoch über dem Boden: der Schlitten rutscht darunter durch
+    const sim = new Simulation(level({ dismounts: [{ x: 600, y: 200, w: 100, h: 100 }] }));
+    sim.boardForTest(0);
+    drawLine(sim, { x: 300, y: 455 }, { x: 420, y: 500 }, true);
+    sim.command({ type: 'launch' });
+    const ev = runUntil(sim, 6, IDLE, (e) => e.type === 'crash');
+    const crash = ev.find((e) => e.type === 'crash');
+    expect(crash).toMatchObject({ cause: 'missed' });
+    expect(crash && crash.type === 'crash' && crash.pos.x).toBeLessThan(1000);
+    expect(sim.phase).toBe('plan');
+  });
+
+  it('Schlitten kann nicht am Schornstein abliefern, wenn der Abschnitt eine Landezone hat', () => {
+    const sim = new Simulation(level({
+      gifts: [{ x: 330, y: 494 }], chimney: { x: 400, y: 500 },
+      dismounts: [{ x: 1500, y: 100, w: 100, h: 100 }],
+    }));
+    sim.boardForTest(0);
+    sim.command({ type: 'launch' });
+    const ev = runUntil(sim, 4, IDLE);
+    expect(ev.some((e) => e.type === 'win')).toBe(false);
+  });
+
+  it('fremde Landezone zählt nicht', () => {
+    const sim = new Simulation(level({
+      stations: [{ pos: { x: 300, y: 440 } }, { pos: { x: 2500, y: 440 } }],
+      areas: [{ ink: 1000, boost: 0 }, { ink: 1000, boost: 0 }],
+      dismounts: [{ x: 1500, y: 100, w: 100, h: 100 }, { x: 330, y: 400, w: 200, h: 100 }],
+    }));
+    sim.boardForTest(0);
+    sim.command({ type: 'launch' });
+    const ev = runUntil(sim, 1, IDLE);
+    expect(ev.some((e) => e.type === 'arrive')).toBe(false);
   });
 
   it('strokeCancel verwirft den laufenden Strich', () => {

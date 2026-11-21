@@ -22,6 +22,11 @@ describe('validateLevel', () => {
     expect(() => validateLevel(raw, 'x.json')).toThrow(/areas/);
   });
 
+  it('mehr Landezonen als Abschnitte wirft', () => {
+    const raw = { ...minimalLevel(), dismounts: [{ x: 0, y: 0, w: 10, h: 10 }, { x: 20, y: 0, w: 10, h: 10 }] };
+    expect(() => validateLevel(raw, 'x.json')).toThrow(/dismounts/);
+  });
+
   it('falsche Version wirft', () => {
     expect(() => validateLevel({ ...minimalLevel(), version: 2 }, 'x.json')).toThrow(LevelError);
   });

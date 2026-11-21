@@ -35,6 +35,13 @@ export class DebugDraw {
     const g = this.dynamic.clear();
     const lv = sim.level;
 
+    // Ziel des aktiven Abschnitts hervorheben
+    if (sim.mode === 'sled') {
+      const z = sim.targetZone() ?? chimneyZone(lv.chimney);
+      const a = 0.55 + 0.35 * Math.sin(performance.now() / 250);
+      g.rect(z.x, z.y, z.w, z.h).stroke({ width: 4, color: 0x40ff90, alpha: a });
+    }
+
     for (const s of sim.ink.strokes) {
       if (s.pts.length < 2) continue;
       g.moveTo(s.pts[0].x, s.pts[0].y);
