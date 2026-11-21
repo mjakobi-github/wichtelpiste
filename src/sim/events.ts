@@ -22,7 +22,7 @@ export type SimEvent =
   | { type: 'board'; area: number }
   | { type: 'launch' }
   | { type: 'arrive'; pos: Vec2; stuck: boolean }
-  | { type: 'crash'; pos: Vec2; cause: 'fall' | 'hazard' }
+  | { type: 'crash'; pos: Vec2; cause: 'fall' | 'hazard' | 'stall' }
   | { type: 'spring'; pos: Vec2 }
   | { type: 'inkEmpty'; boost: boolean }
   | { type: 'blocked'; pos: Vec2 }

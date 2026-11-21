@@ -22,6 +22,9 @@ const LAUNCH_SPEED = 120;
 const FALL_MARGIN = 240;
 const SIDE_MARGIN = 300;
 const STREAK_WINDOW = 2;
+/** Kommt der Schlitten so lange nicht weiter vom Start weg, startet die Fahrt neu (Schaukeln im Tal). */
+const STALL_TIME = 2.5;
+const STALL_PROGRESS = 10;
 
 /**
  * Spielregeln und Zustand eines Levels, ohne DOM.
@@ -48,6 +51,8 @@ export class Simulation {
   private giftSnapshot: boolean[];
   private boardCooldown = 0;
   private stuckTime = 0;
+  private bestReach = 0;
+  private stallTime = 0;
   private refuseUntil = -1;
   private springCooldown: number[];
   private streak = 0;
@@ -145,6 +150,8 @@ export class Simulation {
         this.giftSnapshot = [...this.giftTaken];
         this.moverClock = 0;
         this.stuckTime = 0;
+        this.bestReach = 0;
+        this.stallTime = 0;
         this.sled.reset(this.level.stations[this.activeArea].pos, { x: LAUNCH_SPEED * this.player.facing, y: 0 }, this.player.facing);
         ev.push({ type: 'launch' });
         return;
@@ -251,11 +258,23 @@ export class Simulation {
       return;
     }
 
+    const reach = dist(pos, this.level.stations[this.activeArea].pos);
+    if (reach > this.bestReach + STALL_PROGRESS) {
+      this.bestReach = reach;
+      this.stallTime = 0;
+    } else {
+      this.stallTime += dt;
+    }
+
     if (s.speed < STUCK_SPEED) {
       this.stuckTime += dt;
       if (this.stuckTime > STUCK_TIME) this.dismountAt({ x: pos.x, y: pos.y - PLAYER_TUNING.size.h }, true, ev);
-    } else {
-      this.stuckTime = 0;
+      return;
+    }
+    this.stuckTime = 0;
+    if (this.stallTime > STALL_TIME) {
+      ev.push({ type: 'crash', pos, cause: 'stall' });
+      this.restartRide();
     }
   }
 
@@ -264,6 +283,8 @@ export class Simulation {
     this.phase = 'plan';
     this.moverClock = 0;
     this.stuckTime = 0;
+    this.stallTime = 0;
+    this.bestReach = 0;
     this.sled.reset(this.level.stations[this.activeArea].pos, { x: 0, y: 0 }, this.player.facing);
   }
 

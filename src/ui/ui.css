@@ -1,0 +1,86 @@
+:root {
+  --bg: #070b22;
+  --glass: rgba(14, 20, 58, 0.72);
+  --glass-edge: rgba(160, 200, 255, 0.25);
+  --text: #eef4ff;
+  --muted: #a8b4e0;
+  --accent: #ffd27a;
+  --ink: #9fe8ff;
+  --boost: #ff4d5e;
+  --danger: #ff6b6b;
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
+  font-family: system-ui, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent; overscroll-behavior: none;
+}
+#stage { position: fixed; inset: 0; }
+#stage canvas { display: block; width: 100%; height: 100%; }
+#ui { position: fixed; inset: 0; pointer-events: none; }
+#ui button, #ui .panel { pointer-events: auto; }
+.hidden { display: none !important; }
+
+button {
+  font: inherit; color: var(--text); background: var(--glass); border: 1px solid var(--glass-edge);
+  border-radius: 14px; min-width: 48px; min-height: 48px; cursor: pointer; touch-action: none;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+button:active { transform: scale(0.95); }
+
+/* HUD */
+.hud { position: absolute; top: calc(10px + var(--safe-t)); left: calc(12px + var(--safe-l)); display: flex; flex-direction: column; gap: 6px; }
+.hud-label { font-weight: 600; text-shadow: 0 1px 4px #000; }
+.hud-gifts { font-size: 18px; text-shadow: 0 1px 4px #000; }
+.hud-ink { display: flex; flex-direction: column; gap: 5px; }
+.bar { width: 160px; height: 10px; border-radius: 6px; background: rgba(255,255,255,0.12); overflow: hidden; }
+.bar-fill { height: 100%; width: 100%; border-radius: 6px; transition: width 80ms linear; }
+.bar-ink .bar-fill { background: var(--ink); box-shadow: 0 0 10px var(--ink); }
+.bar-boost .bar-fill { background: var(--boost); box-shadow: 0 0 10px var(--boost); }
+.bar.low { animation: blink 0.6s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0.35; } }
+
+.toast {
+  position: absolute; top: calc(16px + var(--safe-t)); left: 50%; transform: translate(-50%, -20px);
+  padding: 8px 16px; border-radius: 12px; background: var(--glass); border: 1px solid var(--glass-edge);
+  opacity: 0; transition: opacity 0.2s, transform 0.2s; white-space: nowrap;
+}
+.toast.visible { opacity: 1; transform: translate(-50%, 0); }
+
+/* Werkzeuge */
+.tools { position: absolute; top: calc(10px + var(--safe-t)); right: calc(72px + var(--safe-r)); display: flex; gap: 8px; }
+.toolbtn { font-size: 20px; }
+.toolbtn.active { border-color: var(--accent); box-shadow: 0 0 12px rgba(255, 210, 122, 0.6); }
+.toolbtn.danger { border-color: rgba(255, 107, 107, 0.5); }
+.pausebtn { position: absolute; top: calc(10px + var(--safe-t)); right: calc(12px + var(--safe-r)); font-size: 22px; }
+.launch {
+  position: absolute; bottom: calc(20px + var(--safe-b)); left: 50%; transform: translateX(-50%);
+  padding: 12px 28px; font-size: 22px; font-weight: 700; color: #2a1600;
+  background: linear-gradient(#ffe08a, #ffb347); border: none; box-shadow: 0 0 24px rgba(255, 200, 100, 0.7);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.launch:active { transform: translateX(-50%) scale(0.95); }
+@keyframes pulse { 50% { box-shadow: 0 0 40px rgba(255, 200, 100, 1); } }
+
+/* Touch */
+.touch { display: none; }
+@media (pointer: coarse) { .touch { display: block; } }
+.touch .cluster { position: absolute; bottom: calc(18px + var(--safe-b)); display: flex; gap: 14px; }
+.touch .left { left: calc(18px + var(--safe-l)); }
+.touch .right { right: calc(18px + var(--safe-r)); }
+.tbtn { width: 76px; height: 76px; border-radius: 50%; font-size: 28px; opacity: 0.85; }
+.tbtn.big { width: 92px; height: 92px; }
+
+/* Menü / Overlays */
+.overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(4, 6, 20, 0.6); pointer-events: auto; }
+.panel { background: var(--glass); border: 1px solid var(--glass-edge); border-radius: 20px; padding: 20px 26px; text-align: center; max-height: 90vh; overflow: auto; }
+.panel h1, .panel h2 { margin: 0 0 12px; }
+.panel .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.panel button { padding: 8px 16px; }
+.levels { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; min-width: min(80vw, 560px); }
+.levels button { text-align: left; padding: 10px 12px; }

@@ -168,6 +168,24 @@ describe('Simulation', () => {
     expect(launched).toBe(true);
   });
 
+  it('Schaukeln im Tal ohne Fortschritt: Fahrt startet neu', () => {
+    const sim = new Simulation(level({}, 2000));
+    sim.boardForTest(0);
+    // symmetrisches Tal direkt unter der Station: der Schlitten pendelt nur
+    const pts: { x: number; y: number }[] = [];
+    for (let i = 0; i <= 40; i++) { const t = i / 40; pts.push({ x: 200 + t * 200, y: 455 + Math.sin(t * Math.PI) * 30 - 20 }); }
+    sim.command({ type: 'strokeBegin', p: { x: 200, y: 380 }, boost: false });
+    sim.command({ type: 'strokeMove', p: pts[0] });
+    for (const p of pts) sim.command({ type: 'strokeMove', p });
+    sim.command({ type: 'strokeMove', p: { x: 400, y: 380 } });
+    sim.command({ type: 'strokeEnd' });
+    sim.step(DT, IDLE);
+    sim.command({ type: 'launch' });
+    const ev = runUntil(sim, 8, IDLE, (e) => e.type === 'crash');
+    expect(ev.some((e) => e.type === 'crash' && e.cause === 'stall')).toBe(true);
+    expect(sim.phase).toBe('plan');
+  });
+
   it('Festgefahren: automatisches Aussteigen', () => {
     const sim = new Simulation(level({ candies: [{ x: 340, y: 500, h: 60 }] }));
     sim.boardForTest(0);

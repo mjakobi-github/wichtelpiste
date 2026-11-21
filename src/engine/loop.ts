@@ -1,11 +1,11 @@
 /**
- * Fester Zeitschritt (fixed timestep) mit Akkumulator.
- * Physik bleibt deterministisch, egal wie schnell der Bildschirm ist
- * (Desktop 144 Hz vs. Handy 60/90/120 Hz).
+ * Fester Zeitschritt (1/60 s) mit Akkumulator. Höchstens 6 Physik-Ticks pro
+ * Frame, damit nach einer Pause (Handy gesperrt, Tab gewechselt) nichts springt.
+ * render(alpha) bekommt den Restanteil für die Interpolation.
  */
 export class Loop {
-  private static readonly STEP = 1 / 60;   // Physik-Tick (Sekunden)
-  private static readonly MAX_DT = 0.1;    // Tab-Hintergrund etc. abwaermen
+  static readonly STEP = 1 / 60;
+  static readonly MAX_TICKS = 6;
 
   private rafId = 0;
   private lastTime = 0;
@@ -30,20 +30,23 @@ export class Loop {
     cancelAnimationFrame(this.rafId);
   }
 
-  private frame = (now: number): void => {
-    if (!this.running) return;
-    let dt = (now - this.lastTime) / 1000;
-    this.lastTime = now;
-    if (dt > Loop.MAX_DT) dt = Loop.MAX_DT;
-
-    this.accumulator += dt;
-    while (this.accumulator >= Loop.STEP) {
+  /** Ein Frame mit vergangener Zeit dtSeconds (auch für Tests). */
+  advance(dtSeconds: number): void {
+    this.accumulator = Math.min(this.accumulator + dtSeconds, Loop.STEP * Loop.MAX_TICKS);
+    let ticks = 0;
+    while (this.accumulator >= Loop.STEP && ticks < Loop.MAX_TICKS) {
       this.update(Loop.STEP);
       this.accumulator -= Loop.STEP;
+      ticks++;
     }
-    // alpha = Restanteil fuer spaetere Zwischen-Interpolation (derzeit 0)
-    this.render(this.accumulator / Loop.STEP);
+    this.render(Math.min(0.999, this.accumulator / Loop.STEP));
+  }
 
+  private frame = (now: number): void => {
+    if (!this.running) return;
+    const dt = (now - this.lastTime) / 1000;
+    this.lastTime = now;
+    this.advance(dt);
     this.rafId = requestAnimationFrame(this.frame);
   };
 }

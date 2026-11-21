@@ -1,108 +1,62 @@
-/**
- * Eingabeabstraktion: Tastatur (PC) + virtuelle Buttons (Smartphone)
- * muenden in demselben Zustand: move (-1/0/+1), jumpHeld und
- * einem Sprung-Puffer, damit kurz-vor-Boden gedrueckte Spruenge nicht verloren
- * gehen ("Jump Buffer").
- */
-export interface PlayerInput {
-  /** -1 = links, 0 = still, +1 = rechts */
-  move: number;
-  jumpHeld: boolean;
-}
+import type { FootInput } from '../sim/player';
 
+const JUMP_KEYS = ['Space', 'KeyW', 'ArrowUp'];
+const BLOCK_KEYS = ['Space', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'ArrowDown', 'Backspace'];
+
+/**
+ * Tastatur + virtuelle Touch-Knöpfe → FootInput.
+ * jumpPressed ist eine Flanke: true genau beim ersten read() nach dem Drücken.
+ */
 export class Input {
-  /** Optionaler Hook: einmalig pro Tastendruck (kein Auto-Repeat). */
-  onKeyPress: ((code: string) => void) | null = null;
+  /** Einmal pro Tastendruck (ohne Auto-Repeat), für Werkzeuge/Menü. */
+  onKey: ((code: string, e: KeyboardEvent) => void) | null = null;
 
   private keys = new Set<string>();
-  private virtLeft = false;
-  private virtRight = false;
-  private virtJump = false;
+  private virt = { left: false, right: false, jump: false };
+  private pressed = false;
 
-  /** Sprungpuffer: bis zu_buffer Sekunden gueltig, wird durch consume verbraucht. */
-  private static readonly BUFFER_SEC = 0.12;
-  private bufferUntil = -1;
-  private now = 0;
-
-  // Muss jede Game-Iteration mit der aktuellen Zeit versorgt werden.
-  tick(nowSeconds: number): void {
-    this.now = nowSeconds;
+  read(): FootInput {
+    const left = this.virt.left || this.keys.has('ArrowLeft') || this.keys.has('KeyA');
+    const right = this.virt.right || this.keys.has('ArrowRight') || this.keys.has('KeyD');
+    const jumpHeld = this.virt.jump || JUMP_KEYS.some((k) => this.keys.has(k));
+    const jumpPressed = this.pressed;
+    this.pressed = false;
+    const move = (right ? 1 : 0) - (left ? 1 : 0);
+    return { move: move as -1 | 0 | 1, jumpHeld, jumpPressed };
   }
 
-  /** Wurde Sprung gedrueckt (innerhalb des Puffers) und wurde noch nicht verbraucht? */
-  consumeJump(): boolean {
-    if (this.bufferUntil > this.now) {
-      this.bufferUntil = -1;
-      return true;
-    }
-    return false;
-  }
-
-  read(): PlayerInput {
-    const left =
-      this.virtLeft ||
-      this.keys.has('ArrowLeft') ||
-      this.keys.has('KeyA');
-    const right =
-      this.virtRight ||
-      this.keys.has('ArrowRight') ||
-      this.keys.has('KeyD');
-    const jump =
-      this.virtJump ||
-      this.keys.has('Space') ||
-      this.keys.has('KeyW') ||
-      this.keys.has('ArrowUp');
-
-    let move = 0;
-    if (left) move -= 1;
-    if (right) move += 1;
-    return { move, jumpHeld: jump };
-  }
-
-  /** Wird vom Game (eindeutige Setup-Stelle) an canvas/document gebunden. */
   attach(): void {
     window.addEventListener('keydown', (e) => {
+      if (BLOCK_KEYS.includes(e.code)) e.preventDefault();
       if (e.repeat) return;
-      if (['Space', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'ArrowDown'].includes(e.code)) {
-        e.preventDefault();
-      }
-      if (this.isJumpKey(e.code)) this.pressJump();
+      if (JUMP_KEYS.includes(e.code)) this.pressed = true;
       this.keys.add(e.code);
-      this.onKeyPress?.(e.code);
+      this.onKey?.(e.code, e);
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
-    // Fokus-Verlust: alle Tasten loslassen, sonst "Klemmtaste"
     window.addEventListener('blur', () => this.keys.clear());
-
-    this.bindButton('btn-left', (v) => (this.virtLeft = v));
-    this.bindButton('btn-right', (v) => (this.virtRight = v));
-    this.bindButton('btn-jump', (v) => {
-      this.virtJump = v;
-      if (v) this.pressJump();
-    });
   }
 
-  private isJumpKey(code: string): boolean {
-    return code === 'Space' || code === 'KeyW' || code === 'ArrowUp';
-  }
-
-  private pressJump(): void {
-    this.bufferUntil = this.now + Input.BUFFER_SEC;
-  }
-
-  private bindButton(id: string, set: (pressed: boolean) => void): void {
-    const el = document.getElementById(id);
-    if (!el) return;
-    // pointerdown/up deckt Maus + Touch ab; pointercapture halten,
-    // damit Finger über den Button hinausziehen nicht haengen bleibt.
+  /** Virtuellen Knopf binden (Touch-Steuerung). */
+  bindButton(el: HTMLElement, which: 'left' | 'right' | 'jump'): void {
+    const set = (v: boolean) => {
+      if (which === 'jump' && v && !this.virt.jump) this.pressed = true;
+      this.virt[which] = v;
+    };
     el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+      try { el.setPointerCapture(e.pointerId); } catch { /* egal */ }
       set(true);
     });
     const release = () => set(false);
     el.addEventListener('pointerup', release);
     el.addEventListener('pointercancel', release);
     el.addEventListener('lostpointercapture', release);
+  }
+
+  reset(): void {
+    this.keys.clear();
+    this.virt = { left: false, right: false, jump: false };
+    this.pressed = false;
   }
 }
