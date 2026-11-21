@@ -133,6 +133,7 @@ export class App {
     this.go('win');
     const lv = LEVELS[this.levelIdx];
     const rec = this.progress.record(lv, r);
+    if (rec.newBestInk) window.setTimeout(() => { if (this.screen === 'won') audio.record(); }, 1500);
     this.hideGameUi();
     this.hud.show(true);
     this.showOverlay((el) => renderWin(el, {
@@ -157,7 +158,7 @@ export class App {
       resume: () => this.resume(),
       restart: () => void this.startLevel(this.levelIdx, 'restart'),
       levels: () => this.openLevels('toLevels'),
-      toggleSound: () => { audio.muted = !audio.muted; return audio.muted; },
+      toggleSound: () => { audio.setMuted(!audio.muted); return audio.muted; },
     }));
   }
 
@@ -235,6 +236,8 @@ export class App {
   private react(e: SimEvent): void {
     switch (e.type) {
       case 'jump': audio.jump(); break;
+      case 'land': audio.land(e.speed); break;
+      case 'spring': audio.spring(); break;
       case 'gift': audio.gift(e.streak); break;
       case 'checkpoint': audio.checkpoint(); this.hud.toast('Checkpoint!'); break;
       case 'board': this.setTool('draw'); break;
@@ -247,7 +250,7 @@ export class App {
         break;
       }
       case 'inkEmpty': this.hud.toast(e.boost ? 'Speedtinte aufgebraucht!' : 'Tinte aufgebraucht!'); break;
-      case 'blocked': this.hud.toast('Hier kann man nicht zeichnen'); break;
+      case 'blocked': audio.blocked(); this.hud.toast('Hier kann man nicht zeichnen'); break;
       case 'refuse': audio.refuse(); this.hud.toast('Erst Geschenke sammeln!', 1800); break;
       case 'win': {
         audio.win();
