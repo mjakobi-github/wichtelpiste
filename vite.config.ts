@@ -20,6 +20,12 @@ function levelSave(): Plugin {
           res.end(JSON.stringify(body));
         };
         if (req.method !== 'POST') { reply(405, { ok: false, error: 'Nur POST' }); return; }
+        // Nur der eigene Editor: JSON und (falls gesetzt) gleiche Herkunft – fremde Webseiten können nicht speichern.
+        const origin = req.headers.origin;
+        if (!String(req.headers['content-type'] ?? '').startsWith('application/json') || (origin && new URL(origin).host !== req.headers.host)) {
+          reply(403, { ok: false, error: 'Nicht erlaubt' });
+          return;
+        }
         let size = 0;
         const chunks: Buffer[] = [];
         req.on('data', (c: Buffer) => {
@@ -29,17 +35,22 @@ function levelSave(): Plugin {
         });
         req.on('end', () => {
           if (res.writableEnded) return;
-          let body: unknown;
-          try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { reply(400, { ok: false, error: 'Kein JSON' }); return; }
-          const plan = planSave(body, readdirSync(root));
-          if (!plan.ok) { reply(400, plan); return; }
-          const targets = plan.writes.map((w) => ({ abs: resolve(server.config.root, w.path), content: w.content }));
-          if (targets.some((t) => !t.abs.startsWith(root + sep))) { reply(400, { ok: false, error: 'Pfad außerhalb von src/levels' }); return; }
-          for (const t of targets.reverse()) {
-            mkdirSync(dirname(t.abs), { recursive: true });
-            writeFileSync(t.abs, t.content);
+          try {
+            let body: unknown;
+            try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { reply(400, { ok: false, error: 'Kein JSON' }); return; }
+            const plan = planSave(body, readdirSync(root));
+            if (!plan.ok) { reply(400, plan); return; }
+            const targets = plan.writes.map((w) => ({ abs: resolve(server.config.root, w.path), content: w.content }));
+            if (targets.some((t) => !t.abs.startsWith(root + sep))) { reply(400, { ok: false, error: 'Pfad außerhalb von src/levels' }); return; }
+            for (const t of targets.reverse()) {
+              mkdirSync(dirname(t.abs), { recursive: true });
+              writeFileSync(t.abs, t.content);
+            }
+            reply(200, { ok: true, file: plan.file });
+          } catch (e) {
+            // Nie den Dev-Server mitreißen
+            if (!res.writableEnded) reply(500, { ok: false, error: `Speichern fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}` });
           }
-          reply(200, { ok: true, file: plan.file });
         });
       });
     },

@@ -7,7 +7,7 @@ const lv = (name: string): LevelData => ({ ...newLevel(), name });
 
 describe('History', () => {
   it('undo/redo', () => {
-    const h = new History(lv('a'));
+    const h = new History<LevelData>(lv('a'));
     h.push(lv('b'));
     h.push(lv('c'));
     expect(h.undo()?.name).toBe('b');
@@ -18,7 +18,7 @@ describe('History', () => {
   });
 
   it('push nach undo verwirft den Redo-Zweig', () => {
-    const h = new History(lv('a'));
+    const h = new History<LevelData>(lv('a'));
     h.push(lv('b'));
     h.push(lv('c'));
     h.undo();
@@ -29,13 +29,13 @@ describe('History', () => {
   });
 
   it('gleicher Stand wird nicht doppelt gespeichert', () => {
-    const h = new History(lv('a'));
+    const h = new History<LevelData>(lv('a'));
     h.push(lv('a'));
     expect(h.canUndo).toBe(false);
   });
 
   it('Limit', () => {
-    const h = new History(lv('0'), 100);
+    const h = new History<LevelData>(lv('0'), 100);
     for (let i = 1; i <= 150; i++) h.push(lv(String(i)));
     let n = 0;
     while (h.undo()) n++;

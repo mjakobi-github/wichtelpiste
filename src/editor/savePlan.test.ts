@@ -54,6 +54,26 @@ describe('planSave', () => {
     if (!r.ok) expect(r.error).toContain('ID schon vergeben');
   });
 
+  it('ID, die nur als Endung passt, überschreibt keine fremde Datei', () => {
+    const f = LEVEL_FILES.find((x) => x.level.id === 'zwei-daecher')!;
+    const r = planSave({ level: { ...f.level, id: 'daecher' }, solution: solOf(f.level.id), file: f.file }, files);
+    expect(r.ok).toBe(false);
+    const n = planSave({ level: { ...f.level, id: 'daecher' }, solution: solOf(f.level.id) }, files);
+    expect(n.ok && n.file).toMatch(/^\d+-daecher\.json$/);
+  });
+
+  it('ID einer anderen Datei → abgelehnt, auch mit eigener Datei', () => {
+    const r = planSave({ level: { ...base, id: LEVEL_FILES[1].level.id }, solution: solOf(base.id), file: LEVEL_FILES[0].file }, files);
+    expect(r.ok).toBe(false);
+  });
+
+  it('kaputte Lösung → Fehler statt Absturz', () => {
+    for (const solution of [{ areas: [{ strokes: 'x' }] }, { areas: [{ strokes: [{ boost: false, pts: [] }] }] }, { areas: [null] }, { areas: [{ strokes: [{ pts: [[1, 'a']] }] }] }]) {
+      expect(() => planSave({ level: { ...base, id: 'neu' }, solution }, files)).not.toThrow();
+      expect(planSave({ level: { ...base, id: 'neu' }, solution }, files).ok).toBe(false);
+    }
+  });
+
   it('kein Objekt → abgelehnt', () => {
     expect(planSave(null, files).ok).toBe(false);
     expect(planSave({ level: {} }, files).ok).toBe(false);

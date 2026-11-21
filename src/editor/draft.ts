@@ -1,6 +1,5 @@
 import type { LevelData } from '../sim/types';
 import type { Solution } from '../levels/solveRunner';
-import { validateLevel } from '../levels/schema';
 
 export interface DraftData {
   level: LevelData;
@@ -22,7 +21,11 @@ export class Draft {
       const raw = this.store?.getItem(KEY);
       if (!raw) return null;
       const d = JSON.parse(raw) as DraftData;
-      return { ...d, level: validateLevel(d.level, 'Entwurf'), file: d.file ?? null, camera: d.camera ?? null, solution: d.solution ?? null };
+      // Bewusst ohne validateLevel: auch ein halbfertiger (ungültiger) Zwischenstand bleibt erhalten.
+      const l = d?.level as unknown as Record<string, unknown> | undefined;
+      const lists = ['platforms', 'stations', 'dismounts', 'gifts', 'checkpoints', 'icicles', 'candies', 'hazards', 'movers', 'springs', 'noDraw', 'areas', 'hints'];
+      if (!l || l.version !== 1 || !lists.every((k) => Array.isArray(l[k])) || typeof l.spawn !== 'object' || typeof l.chimney !== 'object' || typeof l.theme !== 'object') return null;
+      return { level: d.level, file: d.file ?? null, camera: d.camera ?? null, solution: d.solution ?? null };
     } catch {
       return null;
     }

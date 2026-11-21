@@ -73,6 +73,7 @@ export function validateLevel(raw: unknown, source: string): LevelData {
     const o = obj(e, p);
     return { ink: budget(o.ink, `${p}.ink`), boost: budget(o.boost, `${p}.boost`) };
   });
+  if (stations.length === 0) fail('stations', 'braucht mindestens eine Station');
   if (areas.length !== stations.length) fail('areas', `braucht genau einen Eintrag je Station (${stations.length})`);
   if (Array.isArray(r.dismounts) && r.dismounts.length > areas.length) {
     fail('dismounts', `höchstens eine Landezone je Abschnitt (${areas.length}); Abschnitt i landet in dismounts[i], ohne Eintrag am Schornstein`);

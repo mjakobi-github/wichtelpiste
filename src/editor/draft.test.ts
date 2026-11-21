@@ -18,6 +18,14 @@ describe('Draft', () => {
     d.clear();
     expect(d.load()).toBeNull();
   });
+  it('ungültiger Zwischenstand (kein Geschenk) bleibt erhalten', () => {
+    const s = mem();
+    const d = new Draft(s);
+    const level = { ...newLevel(), gifts: [] };
+    d.save({ level, solution: null, file: null, camera: null });
+    expect(d.load()?.level.gifts).toEqual([]);
+  });
+
   it('kaputte Daten → null', () => {
     const s = mem();
     s.setItem('wichtelpiste.editor.draft.v1', '{kaputt');

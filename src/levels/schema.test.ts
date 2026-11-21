@@ -15,6 +15,13 @@ describe('validateLevel', () => {
     expect(lv.theme).toEqual({ seed: 1, auroraHue: 150 });
   });
 
+  it('ohne Station wirft (Spiel braucht mindestens einen Abschnitt)', () => {
+    const raw = minimalLevel();
+    raw.stations = [];
+    raw.areas = [];
+    expect(() => validateLevel(raw, 'x.json')).toThrow(/stations/);
+  });
+
   it('areas kürzer als stations wirft mit Pfad', () => {
     const raw = minimalLevel();
     raw.areas = [];

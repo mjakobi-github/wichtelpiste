@@ -1,19 +1,17 @@
-import type { LevelData } from '../sim/types';
-
-/** Rückgängig/Wiederholen über unveränderliche Level-Stände. */
-export class History {
-  private states: LevelData[];
+/** Rückgängig/Wiederholen über unveränderliche Stände. */
+export class History<T> {
+  private states: T[];
   private idx = 0;
 
-  constructor(initial: LevelData, private readonly limit = 100) {
+  constructor(initial: T, private readonly limit = 100) {
     this.states = [initial];
   }
 
-  get current(): LevelData { return this.states[this.idx]; }
+  get current(): T { return this.states[this.idx]; }
   get canUndo(): boolean { return this.idx > 0; }
   get canRedo(): boolean { return this.idx < this.states.length - 1; }
 
-  push(l: LevelData): void {
+  push(l: T): void {
     if (JSON.stringify(l) === JSON.stringify(this.current)) return;
     this.states = this.states.slice(0, this.idx + 1);
     this.states.push(l);
@@ -21,12 +19,12 @@ export class History {
     this.idx = this.states.length - 1;
   }
 
-  undo(): LevelData | null {
+  undo(): T | null {
     if (!this.canUndo) return null;
     return this.states[--this.idx];
   }
 
-  redo(): LevelData | null {
+  redo(): T | null {
     if (!this.canRedo) return null;
     return this.states[++this.idx];
   }

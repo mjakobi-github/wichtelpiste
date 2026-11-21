@@ -5,16 +5,17 @@ import { Simulation } from '../sim/simulation';
 import { LEVEL_FILES } from '../levels';
 import type { Solution } from '../levels/solveRunner';
 import { checkSolution, type SolutionCheck } from '../levels/solutionCheck';
-import { mergeSolution, reorderSolution, type Recording } from './recorder';
+import type { Recording } from './recorder';
 import { Draft, type DraftData } from './draft';
-import { History } from './history';
+import { EditorState } from './state';
 import { newLevel } from './template';
-import { addElement, duplicateElement, getElement, moveElement, removeElement, type ElementRef } from './doc';
+import { addElement, duplicateElement, getElement, moveElement, type ElementRef } from './doc';
 import { elementBounds } from './handles';
 import { applyField, applyLevelField, fieldsFor, levelFields, type Field } from './fields';
 import { elementName, levelIssues, suggestBudgets, type Issue } from './checks';
 import { exportFile, importFile } from './exchange';
 import { canSaveToProject, saveToProject } from './saveClient';
+import { idOfFile } from './savePlan';
 import { PointerTool, type EditorAction, type Mods } from './pointer';
 import { EditorOverlay } from './overlay';
 import { EditorUi, PALETTE, type TopAction } from './panels';
@@ -44,7 +45,8 @@ const backdropKey = (l: LevelData): string => `${l.theme.seed}/${l.theme.auroraH
 export class Editor {
   private readonly draft = new Draft(store());
   private doc: DraftData;
-  private history: History;
+  /** Level + Lösung mit gemeinsamem Verlauf; doc.level/doc.solution spiegeln den Stand (doc.level auch Vorschau). */
+  private state: EditorState;
   private still: Simulation;
   private visible = false;
   private started = false;
@@ -73,7 +75,7 @@ export class Editor {
       if (same) this.doc = { ...this.doc, file: same.file };
     }
     this.started = resume;
-    this.history = new History(this.doc.level);
+    this.state = new EditorState(this.doc.level, this.doc.solution);
     this.still = new Simulation(this.doc.level);
     host.view.editorLayer.addChild(this.overlay.container);
     this.ui = new EditorUi(host.uiRoot, {
@@ -174,7 +176,7 @@ export class Editor {
   private load(d: DraftData): void {
     this.ui.hideStart();
     this.doc = d;
-    this.history = new History(d.level);
+    this.state = new EditorState(d.level, d.solution);
     this.selected = null;
     this.placing = null;
     this.levelPanel = false;
@@ -203,7 +205,7 @@ export class Editor {
     this.doc = { ...this.doc, level: l };
     this.dirtyView = true;
     if (commit) {
-      this.history.push(l);
+      this.state.commit(l);
       this.save();
       this.scheduleCheck();
     }
@@ -232,17 +234,17 @@ export class Editor {
   }
 
   private undo(): void {
-    const l = this.history.undo();
-    if (l) this.restore(l);
+    if (this.state.undo()) this.syncFromState();
   }
 
   private redo(): void {
-    const l = this.history.redo();
-    if (l) this.restore(l);
+    if (this.state.redo()) this.syncFromState();
   }
 
-  private restore(l: LevelData): void {
-    this.doc = { ...this.doc, level: l };
+  /** Nach Verlaufs-Schritten, die auch die Lösung betreffen: Spiegel, Ansicht, Entwurf, Prüfung aktualisieren. */
+  private syncFromState(): void {
+    const l = this.state.level;
+    this.doc = { ...this.doc, level: l, solution: this.state.solution };
     this.dirtyView = true;
     if (this.selected && getElement(l, this.selected) === undefined) this.selected = null;
     this.save();
@@ -261,9 +263,9 @@ export class Editor {
     const ref = this.selected;
     if (!ref) return;
     if (ref.kind === 'spawn' || ref.kind === 'chimney') { this.host.toast(`${elementName(ref)} kann man nur verschieben`); return; }
-    if (ref.kind === 'station') this.doc = { ...this.doc, solution: reorderSolution(this.doc.solution, { type: 'remove', index: ref.index }) };
     this.selected = null;
-    this.setLevel(removeElement(this.doc.level, ref), true);
+    this.state.remove(ref);
+    this.syncFromState();
   }
 
   private nudge(dx: number, dy: number): void {
@@ -281,10 +283,9 @@ export class Editor {
     if (ref.kind === 'station' && key === 'number') {
       const to = Number(value) - 1;
       if (to >= 0 && to < this.doc.level.stations.length) {
-        this.doc = { ...this.doc, solution: reorderSolution(this.doc.solution, { type: 'swap', a: ref.index, b: to }) };
-        this.setLevel(applyField(this.doc.level, ref, key, value), true);
+        this.state.renumber(ref.index, to);
         this.selected = { kind: 'station', index: to };
-        this.refreshUi();
+        this.syncFromState();
         return;
       }
     }
@@ -333,10 +334,9 @@ export class Editor {
   }
 
   private returnFromTest(rec: Recording): void {
-    if (JSON.stringify(rec.level) === JSON.stringify(this.doc.level) && rec.solvedAreas.some(Boolean)) {
-      this.doc = { ...this.doc, solution: mergeSolution(this.doc.solution, rec) };
-      this.save();
-      const n = rec.solvedAreas.filter(Boolean).length;
+    const n = this.state.mergeRecording(rec);
+    if (n > 0) {
+      this.syncFromState();
       this.host.toast(n === 1 ? 'Lösung für einen Abschnitt gemerkt' : `Lösung für ${n} Abschnitte gemerkt`, 2000);
     }
     this.scheduleCheck();
@@ -349,7 +349,7 @@ export class Editor {
       return;
     }
     // ID geändert → als neues Level speichern (die alte Datei bleibt unberührt)
-    const file = this.doc.file?.endsWith(`-${this.doc.level.id}.json`) ? this.doc.file : null;
+    const file = this.doc.file && idOfFile(this.doc.file) === this.doc.level.id ? this.doc.file : null;
     try { window.sessionStorage.setItem(REOPEN_KEY, '1'); } catch { /* egal */ }
     const r = await saveToProject(this.doc.level, this.doc.solution, file);
     if (!r.ok) {
@@ -409,7 +409,7 @@ export class Editor {
     const l = this.doc.level;
     this.issues = levelIssues(l);
     this.ui.setTop({
-      canUndo: this.history.canUndo, canRedo: this.history.canRedo, grid: this.grid, pan: this.panTool,
+      canUndo: this.state.canUndo, canRedo: this.state.canRedo, grid: this.grid, pan: this.panTool,
       canSave: canSaveToProject, levelOpen: this.levelPanel, testable: !this.issues.some((i) => i.level === 'error'),
     });
     if (this.fromArea !== null && this.fromArea >= l.stations.length) this.fromArea = null;

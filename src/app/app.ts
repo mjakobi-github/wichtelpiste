@@ -168,9 +168,10 @@ export class App {
     this.editor.show();
   }
 
-  private async startTest(level: LevelData, fromArea: number | null, onBack: (rec: Recording) => void): Promise<void> {
+  /** recorder: beim Neustart weiterverwenden, damit schon geschaffte Abschnitte nicht verloren gehen. */
+  private async startTest(level: LevelData, fromArea: number | null, onBack: (rec: Recording) => void, recorder?: Recorder): Promise<void> {
     const { Recorder } = await import('../editor/recorder');
-    this.testRun = { level, fromArea, recorder: new Recorder(level), onBack };
+    this.testRun = { level, fromArea, recorder: recorder ?? new Recorder(level), onBack };
     this.editor?.hide();
     this.view.editMode = false;
     this.sim = new Simulation(level);
@@ -200,7 +201,7 @@ export class App {
 
   private restartCurrent(a: ScreenAction): void {
     const run = this.testRun;
-    if (run) void this.startTest(run.level, run.fromArea, run.onBack);
+    if (run) void this.startTest(run.level, run.fromArea, run.onBack, run.recorder);
     else void this.startLevel(this.levelIdx, a);
   }
 

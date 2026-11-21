@@ -41,6 +41,12 @@ describe('checkSolution', () => {
   });
 });
 
+describe('checkSolution ohne Abschnitte', () => {
+  it('ist nie ok', () => {
+    expect(checkSolution({ ...LEVELS[0], stations: [], areas: [], dismounts: [] }, { areas: [] }).ok).toBe(false);
+  });
+});
+
 describe('LEVEL_FILES', () => {
   it('entspricht LEVELS mit Dateinamen', () => {
     expect(LEVEL_FILES.map((f) => f.level)).toEqual(LEVELS);

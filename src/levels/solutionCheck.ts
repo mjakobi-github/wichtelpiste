@@ -41,5 +41,5 @@ export function checkSolution(level: LevelData, sol: Solution | null): SolutionC
     if (o.type !== want) return fail(want === 'win' ? 'erreicht den Schornstein nicht' : 'kommt nicht in der Landezone an');
     return { ok: true, reason: null, inkUsed, boostUsed };
   });
-  return { ok: areas.every((a) => a.ok), areas };
+  return { ok: areas.length > 0 && areas.every((a) => a.ok), areas };
 }
