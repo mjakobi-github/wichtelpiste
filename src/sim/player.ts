@@ -41,6 +41,8 @@ export class Player {
   grounded = false;
   /** Steht gerade auf Eis */
   onIce = false;
+  /** Vom Eis abgesprungen/abgerutscht: Schwung bleibt bis zur nächsten Landung */
+  private iceMomentum = false;
 
   private coyote = 0;
   private buffer = 0;
@@ -58,6 +60,7 @@ export class Player {
     this.facing = 1;
     this.grounded = false;
     this.onIce = false;
+    this.iceMomentum = false;
     this.coyote = 0;
     this.buffer = 0;
     this.canCut = false;
@@ -87,9 +90,10 @@ export class Player {
     // Horizontal
     const target = input.move * k.maxRunSpeed;
     const ice = this.grounded && this.onIce;
+    const iceAir = !this.grounded && this.iceMomentum;
     const accel = input.move !== 0
-      ? (ice ? k.iceAccel : this.grounded ? k.groundAccel : k.airAccel)
-      : (ice ? k.iceFriction : this.grounded ? k.groundFriction : k.airFriction);
+      ? (ice || iceAir ? k.iceAccel : this.grounded ? k.groundAccel : k.airAccel)
+      : (ice ? k.iceFriction : iceAir ? 0 : this.grounded ? k.groundFriction : k.airFriction);
     this.vel.x = approach(this.vel.x, target, accel * dt);
     if (input.move !== 0) this.facing = input.move > 0 ? 1 : -1;
 
@@ -129,10 +133,13 @@ export class Player {
 
     const wasGrounded = this.grounded;
     const impact = this.vel.y;
+    const wasOnIce = this.onIce;
     this.grounded = false;
     this.onIce = false;
     this.pos.y += this.vel.y * dt;
     this.solve(solids, 'y');
+    if (this.grounded) this.iceMomentum = false;
+    else if (wasOnIce) this.iceMomentum = true; // Absprung oder Abrutschen vom Eis
     if (this.grounded && !wasGrounded) ev.landed = impact;
 
     return ev;

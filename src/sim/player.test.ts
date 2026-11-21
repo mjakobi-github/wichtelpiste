@@ -184,4 +184,32 @@ describe('Player auf Eis', () => {
     expect(ev.jumped).toBe(true);
     expect(p.onIce).toBe(false);
   });
+
+  function slideThenJump(ground: Rect, moveInAir: -1 | 0 | 1) {
+    const p = new Player({ x: 0, y: ground.y - H });
+    p.update(DT, idle, [ground]);
+    for (let i = 0; i < 90; i++) p.update(DT, { move: 1, jumpHeld: false, jumpPressed: false }, [ground]);
+    const v0 = p.vel.x;
+    p.update(DT, { move: moveInAir, jumpHeld: true, jumpPressed: true }, [ground]);
+    for (let i = 0; i < 20; i++) p.update(DT, { move: moveInAir, jumpHeld: true, jumpPressed: false }, [ground]);
+    expect(p.grounded).toBe(false);
+    return { v0, v: p.vel.x };
+  }
+
+  it('Sprung vom Eis behält den Schwung (ohne Eingabe)', () => {
+    const { v0, v } = slideThenJump(ICE, 0);
+    expect(v).toBeGreaterThan(v0 * 0.95);
+  });
+
+  it('Sprung vom Eis: Gegenlenken in der Luft wirkt deutlich träger als vom Schnee', () => {
+    const ice = slideThenJump(ICE, -1);
+    const snow = slideThenJump(GROUND, -1);
+    expect(snow.v).toBeLessThan(-250);
+    expect(ice.v).toBeGreaterThan(snow.v + 200);
+  });
+
+  it('Sprung vom Schnee bremst in der Luft wie bisher', () => {
+    const { v0, v } = slideThenJump(GROUND, 0);
+    expect(v).toBeLessThan(v0 * 0.8);
+  });
 });
