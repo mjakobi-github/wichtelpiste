@@ -5,7 +5,7 @@ import { PALETTE, type PaletteEntry } from './panels';
 export type EditorMode = 'simple' | 'pro';
 
 /** Einfach: große, verständliche Bausteine (Kinder ab 8). */
-const SIMPLE: readonly string[] = ['Boden', 'Eis', 'Start', 'Station', 'Landezone', 'Geschenk', 'Laterne', 'Schornstein', 'Eiszapfen', 'Zuckerstange', 'Feder'];
+const SIMPLE: readonly string[] = ['Boden', 'Balken', 'Eis', 'Start', 'Station', 'Landezone', 'Geschenk', 'Laterne', 'Schornstein', 'Eiszapfen', 'Zuckerstange', 'Feder'];
 
 export function paletteFor(mode: EditorMode): readonly PaletteEntry[] {
   return mode === 'pro' ? PALETTE : SIMPLE.map((l) => PALETTE.find((p) => p.label === l)!);

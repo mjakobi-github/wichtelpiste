@@ -3,6 +3,9 @@ import type { FootInput } from '../sim/player';
 const JUMP_KEYS = ['Space', 'KeyW', 'ArrowUp'];
 const BLOCK_KEYS = ['Space', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'ArrowDown', 'Backspace'];
 
+const TYPING_TAGS = ['INPUT', 'TEXTAREA', 'SELECT'];
+const isTyping = (t: EventTarget | null): boolean => TYPING_TAGS.includes((t as { tagName?: string } | null)?.tagName ?? '');
+
 /**
  * Tastatur + virtuelle Touch-Knöpfe → FootInput.
  * jumpPressed ist eine Flanke: true genau beim ersten read() nach dem Drücken.
@@ -25,16 +28,19 @@ export class Input {
     return { move: move as -1 | 0 | 1, jumpHeld, jumpPressed };
   }
 
-  attach(): void {
-    window.addEventListener('keydown', (e) => {
+  attach(target: EventTarget = window): void {
+    target.addEventListener('keydown', (ev) => {
+      const e = ev as KeyboardEvent;
+      // Tippen in Eingabefeldern (z. B. Editor-Zahlen) gehört nicht dem Spiel.
+      if (isTyping(e.target)) return;
       if (BLOCK_KEYS.includes(e.code)) e.preventDefault();
       if (e.repeat) return;
       if (JUMP_KEYS.includes(e.code)) this.pressed = true;
       this.keys.add(e.code);
       this.onKey?.(e.code, e);
     });
-    window.addEventListener('keyup', (e) => this.keys.delete(e.code));
-    window.addEventListener('blur', () => this.keys.clear());
+    target.addEventListener('keyup', (e) => this.keys.delete((e as KeyboardEvent).code));
+    target.addEventListener('blur', () => this.keys.clear());
   }
 
   /** Virtuellen Knopf binden (Touch-Steuerung). */

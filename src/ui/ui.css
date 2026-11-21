@@ -24,6 +24,7 @@ html, body {
   font-family: var(--font); touch-action: none; user-select: none; -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent; overscroll-behavior: none;
 }
+input, textarea { user-select: text; -webkit-user-select: text; touch-action: manipulation; }
 #stage { position: fixed; inset: 0; }
 #stage canvas { display: block; width: 100%; height: 100%; }
 #ui { position: fixed; inset: 0; pointer-events: none; }
@@ -149,6 +150,12 @@ button.primary {
 .logo-sled { width: clamp(44px, 8vw, 80px); height: auto; color: #ff5a70; filter: drop-shadow(0 0 10px rgba(255, 90, 112, 0.6)); }
 .tagline { margin: 8px 0 26px; font-size: clamp(15px, 2.4vw, 20px); color: var(--muted); }
 button.hero { font-size: 26px; padding: 12px 36px; border-radius: 18px; animation: pulse 1.6s ease-in-out infinite; }
+.title-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px; }
+button.title-editor {
+  font-size: 22px; padding: 12px 28px; min-height: 63px; border-radius: 18px; text-shadow: none;
+  background: var(--glass-strong); border: 1.5px solid rgba(255, 210, 122, 0.55); color: var(--accent);
+}
+button.title-editor .icon { width: 1em; height: 1em; }
 
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 .card {

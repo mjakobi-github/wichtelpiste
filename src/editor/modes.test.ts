@@ -8,7 +8,7 @@ import { newLevel } from './template';
 describe('Einfach/Profi', () => {
   it('Einfach: nur einfache Bausteine', () => {
     const kinds = paletteFor('simple').map((p) => p.label);
-    expect(kinds).toEqual(['Boden', 'Eis', 'Start', 'Station', 'Landezone', 'Geschenk', 'Laterne', 'Schornstein', 'Eiszapfen', 'Zuckerstange', 'Feder']);
+    expect(kinds).toEqual(['Boden', 'Balken', 'Eis', 'Start', 'Station', 'Landezone', 'Geschenk', 'Laterne', 'Schornstein', 'Eiszapfen', 'Zuckerstange', 'Feder']);
     expect(paletteFor('simple').some((p) => p.kind === 'mover' || p.kind === 'hazard' || p.kind === 'noDraw' || p.kind === 'hint')).toBe(false);
   });
   it('Profi: alle Bausteine', () => {

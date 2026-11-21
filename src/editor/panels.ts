@@ -285,7 +285,12 @@ export class EditorUi {
         if (f.step !== undefined) i.step = String(f.step);
         if (f.min !== undefined) i.min = String(f.min);
         i.value = String(f.value);
-        i.addEventListener('change', () => this.h.field(f.key, f.type === 'number' ? Number(i.value) : i.value, level));
+        if (f.type === 'number') i.inputMode = 'decimal';
+        i.addEventListener('change', () => {
+          // Leer gelassen = unverändert (sonst würde aus „“ eine 0).
+          if (f.type === 'number' && (i.value.trim() === '' || !Number.isFinite(Number(i.value)))) { i.value = String(f.value); return; }
+          this.h.field(f.key, f.type === 'number' ? Number(i.value) : i.value, level);
+        });
         i.addEventListener('keydown', (e) => { if (e.key === 'Enter') i.blur(); });
       }
     }
