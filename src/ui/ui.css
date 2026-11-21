@@ -41,6 +41,8 @@ button {
   transition: transform 90ms, border-color 150ms, box-shadow 150ms;
 }
 button:active { transform: scale(0.95); }
+/* Knöpfe in scrollbaren Listen/Menüs: Wischen muss scrollen (Spielknöpfe bleiben gesperrt). */
+.panel button { touch-action: pan-x pan-y; }
 button.primary {
   color: #2a1600; font-weight: 700; border: none;
   background: linear-gradient(#ffe08a, #ffb347); box-shadow: 0 0 22px rgba(255, 200, 100, 0.55);

@@ -122,3 +122,6 @@
 .editor.phone .ed-phone-inline { display: inline-flex; }
 .editor.phone .ed-issues { display: none; max-height: 40vh; }
 .editor.phone .ed-issues.open { display: flex; }
+
+/* Scrollbare Editor-Bereiche: Wischen auf einem Knopf scrollt die Liste. */
+.ed-menu button, .ed-palette button, .ed-side button, .ed-side select, .ed-issues button { touch-action: pan-x pan-y; }
