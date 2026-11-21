@@ -15,6 +15,7 @@ src/
   app/      Verdrahtung (App), Bildschirm-Fluss, Fortschritt (localStorage)
   levels/   Level-JSON (Format v1), Schema-Prüfung, Lösungen + Lösbarkeitstest
   editor/   Level-Editor (per import() nachgeladen): Dokument, Griffe, Prüfungen, UI
+  share/    Teilen: Level-Codec für Links, QR-Encoder, Teilen-Dialog
   assets/   SVG-Teile (Elfe, Schlitten, Objekte)
 ```
 
@@ -180,3 +181,58 @@ reine Logik des Editors (`src/editor/*.test.ts`).
   Editor wieder.
 - **Probespielen:** `App.startTest()` spielt das Level aus dem Speicher, ohne
   Fortschritt zu schreiben; Pause und Sieg führen zurück in den Editor.
+
+## 10. Bauen und Teilen
+
+### Speicher (`app/library.ts`, alles Best-Effort mit try/catch)
+
+| Schlüssel | Inhalt |
+|---|---|
+| `wichtelpiste.mylevels.v1` | Eigene Levels `{ uid, level, solution, updatedAt, file?, camera? }` |
+| `wichtelpiste.gifts.v1` | Geschenkte Levels `{ key = levelHash, level, from, challengeInk, receivedAt }` |
+| `wichtelpiste.editor.prefs.v1` | Einfach/Profi, Schön/Skizze, Sprungweite, Name des Absenders |
+| `schlittenfahrer.progress.v1` | Fortschritt; Menü-Levels unter `level.id`, eigene unter `mine:<uid>`, geschenkte unter `gift:<key>` |
+
+Der alte Einzel-Entwurf (`wichtelpiste.editor.draft.v1`) wird einmalig nach
+„Meine Levels“ übernommen.
+
+### Link-Format (`share/codec.ts`)
+
+`<Seite>#l=<code>`. `code[0]` = Format: `1` = v1 deflate-raw
+(`CompressionStream`), `0` = v1 unkomprimiert (Rückfall); `2`–`9` = neuere
+Version → Hinweis „Seite neu laden“. Danach base64url eines kompakten JSON
+mit Kurzschlüsseln (`n` Name, `p` Plattformen `[x,y,w,h,eis]`, `mv` Beweger
+…, leere Listen fehlen), dazu `f` Absender und `r` Rekord. Die Lösung wird nie
+mitgeschickt. Grenze `SHARE_MAX_CODE = 1500` Zeichen (QR bleibt scanbar);
+die 8 Menü-Levels liegen deutlich darunter. Empfang: `app/receive.ts` beim
+Start und bei `hashchange`, danach wird der Hash entfernt.
+
+### QR (`share/qr.ts`)
+
+Eigener Encoder (Byte-Modus, Fehlerkorrektur M, Versionen 1–40, 8 Masken mit
+Strafpunkten), Ausgabe als SVG. Tests lesen jeden Code mit einem eigenen
+Leser zurück (Formatinfo, Reed-Solomon-Syndrome, Daten).
+
+### Editor sparsam
+
+- **Rendern auf Anforderung:** Im Editor ist der Pixi-Ticker angehalten
+  (`GameView.setManualRender`); `RenderGate` lässt nur nach Änderungen
+  (Level, Auswahl, Kamera, Größe) ein Bild plus ein Nachlauf-Bild zu.
+- **Ziehen:** Vorschau nur auf der Editor-Ebene, Welt-Neuaufbau erst beim
+  Loslassen; Häuser (Canvas-Texturen) werden wiederverwendet, wenn Plattformen,
+  Seed und Höhe gleich sind.
+- **Skizze:** Kulisse, Häuser, Objekte und Bloom werden gar nicht gebaut; die
+  Editor-Ebene zeichnet einfache Flächen.
+- Messung (Headless-Chrome mit Software-GL, Level 08, 3 × 8 Ziehbewegungen):
+  vorher 1,78 s Rechenzeit (~74 ms je Bewegung), nachher 0,80 s (~33 ms, reines
+  Zeichnen); Leerlauf 5 s: vorher jedes Bild, nachher 0 Bilder.
+
+### Sprungbögen (`editor/jumpReach.ts`)
+
+Werden mit der echten `Player`-Physik vorberechnet (voller Anlauf, Sprung
+gehalten; auf Eis mit Eis-Schwung) und für Boden/Start/Landezone gezeichnet.
+
+### Handy-Layout
+
+`layoutFor(w, h)`: Handy bei Höhe < 500 px oder Breite < 1000 px. Dann
+Bausteine unten wischbar, Eigenschaften als Blatt, Selteneres im ⋯-Menü.

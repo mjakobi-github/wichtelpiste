@@ -14,7 +14,13 @@ import { TouchControls } from '../ui/touchControls';
 import { RotateHint } from '../ui/rotateHint';
 import { HintView, activeHint } from '../ui/hints';
 import { renderTitle } from '../ui/screens/title';
-import { renderLevelSelect } from '../ui/screens/levelSelect';
+import { renderLevelSelect, type LevelTab } from '../ui/screens/levelSelect';
+import { showGiftCard } from '../ui/screens/giftCard';
+import { confirmDialog } from '../ui/dialog';
+import { Gifts, MyLevels } from './library';
+import { receiveFromHash } from './receive';
+import { playableError } from './playable';
+import { progressKey } from './progress';
 import { renderPause } from '../ui/screens/pause';
 import { renderWin } from '../ui/screens/win';
 import { Progress } from './progress';
@@ -45,13 +51,20 @@ function consumeReopen(): boolean {
   }
 }
 
+type PlayTarget = { kind: 'menu'; idx: number } | { kind: 'mine'; uid: string } | { kind: 'gift'; key: string };
+
 /** Laufende Probefahrt aus dem Editor. */
-interface TestRun { level: LevelData; fromArea: number | null; recorder: Recorder; onBack: (rec: Recording) => void }
+interface TestRun { level: LevelData; fromArea: number | null; recorder: Recorder; onBack: (rec: Recording) => void; progressKey?: string }
 
 /** Verdrahtet Simulation, Darstellung, Oberfläche und Audio. */
 export class App {
   private screen: Screen = 'title';
-  private levelIdx = 0;
+  private hudPrefix = '';
+  /** Was gerade gespielt wird: Menü-Level, eigenes oder geschenktes. */
+  private target: PlayTarget = { kind: 'menu', idx: 0 };
+  private levelTab: LevelTab = 'menu';
+  private readonly myLevels: MyLevels;
+  private readonly gifts: Gifts;
   private sim: Simulation | null = null;
   private tool: ToolName = 'draw';
   private events: SimEvent[] = [];
@@ -70,6 +83,8 @@ export class App {
     let store: Storage | null = null;
     try { store = window.localStorage; } catch { store = null; }
     this.progress = new Progress(store);
+    this.myLevels = new MyLevels(store);
+    this.gifts = new Gifts(store);
   }
 
   async start(): Promise<void> {
@@ -103,6 +118,8 @@ export class App {
     new Loop((dt) => this.update(dt), (alpha) => this.render(alpha)).start();
     this.openTitle();
     if (editorAllowed() && consumeReopen()) void this.openEditor(true);
+    void this.checkHash();
+    window.addEventListener('hashchange', () => void this.checkHash());
     if (new URLSearchParams(window.location.search).has('debug')) {
       // Lösungen für src/levels/solutions/<id>.json: in der Konsole copy(__exportStrokes())
       (window as unknown as { __exportStrokes: () => string }).__exportStrokes = () => this.exportStrokes();
@@ -137,13 +154,73 @@ export class App {
   private openTitle(): void {
     this.screen = 'title';
     this.toMenu();
-    this.showOverlay((el) => renderTitle(el, () => this.openLevels('start'), editorAllowed() ? () => void this.openEditor() : null));
+    this.showOverlay((el) => renderTitle(el, () => this.openLevels('start'), () => void this.openEditor()));
   }
 
-  private openLevels(a: ScreenAction): void {
+  private openLevels(a: ScreenAction, tab: LevelTab = this.levelTab): void {
     this.go(a);
+    this.screen = 'levels';
     this.toMenu();
-    this.showOverlay((el) => renderLevelSelect(el, LEVELS, (lv) => this.progress.get(lv), (i) => void this.startLevel(i, 'pickLevel'), () => this.openTitle()));
+    this.levelTab = tab;
+    const p = this.progress;
+    this.showOverlay((el) => renderLevelSelect(el, {
+      tab,
+      menu: LEVELS.map((level) => ({ level, progress: p.get(level) })),
+      mine: this.myLevels.list().map((m) => ({ uid: m.uid, level: m.level, progress: p.get(m.level, progressKey.mine(m.uid)) })),
+      gifts: this.gifts.list().map((g) => ({ ...g, progress: p.get(g.level, progressKey.gift(g.key)) })),
+    }, {
+      pickMenu: (i) => void this.startTarget({ kind: 'menu', idx: i }),
+      pickMine: (uid) => void this.startTarget({ kind: 'mine', uid }),
+      pickGift: (key) => void this.startTarget({ kind: 'gift', key }),
+      deleteGift: (key) => void this.deleteGift(key),
+      tab: (t) => this.openLevels('toLevels', t),
+      back: () => this.openTitle(),
+    }));
+  }
+
+  private async deleteGift(key: string): Promise<void> {
+    const g = this.gifts.get(key);
+    if (!g) return;
+    const ok = await confirmDialog(this.uiRoot, { title: 'Geschenk löschen?', text: `„${g.level.name}“ verschwindet aus „Geschenkt“.`, ok: 'Löschen', danger: true });
+    if (!ok) return;
+    this.gifts.remove(key);
+    this.openLevels('toLevels', 'gift');
+  }
+
+  // ------------------------------------------------------------ Geteilte Links
+
+  /** Geschenktes Level mit eigenem Rekord zurückschicken. */
+  private async sendBack(level: LevelData, inkUsed: number): Promise<void> {
+    const { Prefs } = await import('../editor/prefs');
+    let store: Storage | null = null;
+    try { store = window.localStorage; } catch { store = null; }
+    const prefs = new Prefs(store);
+    const { openShareDialog } = await import('../share/shareDialog');
+    await openShareDialog(this.uiRoot, { level, from: prefs.get().senderName, challengeInk: inkUsed }, (n) => prefs.set({ senderName: n }));
+  }
+
+  /** #l=… in der Adresse: Level als Geschenk speichern, Karte zeigen, Adresse aufräumen. */
+  private async checkHash(): Promise<void> {
+    const r = await receiveFromHash(window.location.hash, this.gifts);
+    if (r.kind === 'none') return;
+    try { history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /* egal */ }
+    if (r.kind === 'error') { this.hud.toast(r.message, 4000); return; }
+    if (this.screen === 'play' && this.sim && !this.sim.won) this.openPause();
+    showGiftCard(this.uiRoot, r.gift, {
+      play: () => {
+        if (this.screen === 'editor') this.editor?.hide();
+        void this.startTarget({ kind: 'gift', key: r.gift.key });
+      },
+      later: () => { if (this.screen === 'levels') this.openLevels('toLevels', 'gift'); },
+    });
+  }
+
+  /** Level, Fortschritts-Schlüssel und HUD-Präfix zum Spielziel. */
+  private resolve(t: PlayTarget): { level: LevelData; key: string; prefix: string } | null {
+    if (t.kind === 'menu') { const level = LEVELS[t.idx]; return level ? { level, key: level.id, prefix: `${t.idx + 1}.` } : null; }
+    if (t.kind === 'mine') { const m = this.myLevels.get(t.uid); return m ? { level: m.level, key: progressKey.mine(m.uid), prefix: 'Eigenes:' } : null; }
+    const g = this.gifts.get(t.key);
+    return g ? { level: g.level, key: progressKey.gift(g.key), prefix: 'Geschenk:' } : null;
   }
 
   // ------------------------------------------------------------ Editor
@@ -155,8 +232,8 @@ export class App {
         view: this.view,
         uiRoot: this.uiRoot,
         stageHost: this.stageHost,
-        startTest: (level, fromArea, onBack) => void this.startTest(level, fromArea, onBack),
-        close: () => { this.editor?.hide(); this.openLevels('toLevels'); },
+        startTest: (level, fromArea, onBack, key) => void this.startTest(level, fromArea, onBack, undefined, key),
+        close: () => { this.editor?.hide(); this.openTitle(); },
         toast: (t, ms) => this.hud.toast(t, ms),
       };
       this.editor = new Editor(host, resume);
@@ -165,13 +242,13 @@ export class App {
     this.sim = null;
     this.hideGameUi();
     this.hideOverlay();
-    this.editor.show();
+    this.editor.show(!resume);
   }
 
   /** recorder: beim Neustart weiterverwenden, damit schon geschaffte Abschnitte nicht verloren gehen. */
-  private async startTest(level: LevelData, fromArea: number | null, onBack: (rec: Recording) => void, recorder?: Recorder): Promise<void> {
+  private async startTest(level: LevelData, fromArea: number | null, onBack: (rec: Recording) => void, recorder?: Recorder, progressKey?: string): Promise<void> {
     const { Recorder } = await import('../editor/recorder');
-    this.testRun = { level, fromArea, recorder: recorder ?? new Recorder(level), onBack };
+    this.testRun = { level, fromArea, recorder: recorder ?? new Recorder(level), onBack, progressKey };
     this.editor?.hide();
     this.view.editMode = false;
     this.sim = new Simulation(level);
@@ -201,15 +278,20 @@ export class App {
 
   private restartCurrent(a: ScreenAction): void {
     const run = this.testRun;
-    if (run) void this.startTest(run.level, run.fromArea, run.onBack, run.recorder);
-    else void this.startLevel(this.levelIdx, a);
+    if (run) void this.startTest(run.level, run.fromArea, run.onBack, run.recorder, run.progressKey);
+    else void this.startTarget(this.target, a);
   }
 
-  private async startLevel(idx: number, a: ScreenAction): Promise<void> {
+  private async startTarget(t: PlayTarget, _a: ScreenAction = 'pickLevel'): Promise<void> {
+    const r = this.resolve(t);
+    if (!r) { this.hud.toast('Level nicht gefunden'); return; }
+    const bad = playableError(r.level);
+    if (bad) { this.hud.toast(bad, 3000); return; }
     this.testRun = null;
     this.view.editMode = false;
-    this.levelIdx = idx;
-    const level = LEVELS[idx];
+    this.target = t;
+    this.hudPrefix = r.prefix;
+    const level = r.level;
     this.sim = new Simulation(level);
     await this.view.load(level);
     this.input.reset();
@@ -217,8 +299,8 @@ export class App {
     this.hud.show(true);
     this.toolbar.setPauseVisible(true);
     this.setTool('draw');
-    this.go(a);
-    this.hud.banner(`${idx + 1}. ${level.name}`, 'Sammle die Geschenke und bring sie zum Schornstein');
+    this.screen = 'play';
+    this.hud.banner(`${r.prefix} ${level.name}`, 'Sammle die Geschenke und bring sie zum Schornstein');
   }
 
   private showWin(r: WinResult): void {
@@ -226,25 +308,34 @@ export class App {
     this.hideGameUi();
     this.hud.show(true);
     if (this.testRun) {
-      this.showOverlay((el) => renderWin(el, { result: r, newBestInk: false, bestInk: null, hasNext: false, backLabel: 'Zurück zum Editor' }, {
+      // Ganze Probefahrt ab Start: zählt als eigener Rekord (Herausforderung beim Teilen)
+      const key = this.testRun.fromArea === null ? this.testRun.progressKey : undefined;
+      const rec = key ? this.progress.record(this.testRun.level, r, key) : null;
+      const best = key ? this.progress.get(this.testRun.level, key).bestInk : null;
+      this.showOverlay((el) => renderWin(el, { result: r, newBestInk: rec?.newBestInk ?? false, bestInk: best, hasNext: false, backLabel: 'Zurück zum Editor' }, {
         again: () => this.restartCurrent('again'),
         next: () => undefined,
         levels: () => this.backToEditor(),
       }));
       return;
     }
-    const lv = LEVELS[this.levelIdx];
-    const rec = this.progress.record(lv, r);
+    const t = this.target;
+    const res = this.resolve(t);
+    if (!res) { this.openLevels('toLevels'); return; }
+    const rec = this.progress.record(res.level, r, res.key);
     if (rec.newBestInk) window.setTimeout(() => { if (this.screen === 'won') audio.record(); }, 1500);
+    const tab: LevelTab = t.kind === 'menu' ? 'menu' : t.kind === 'mine' ? 'mine' : 'gift';
     this.showOverlay((el) => renderWin(el, {
       result: r,
       newBestInk: rec.newBestInk,
-      bestInk: this.progress.get(lv).bestInk,
-      hasNext: this.levelIdx + 1 < LEVELS.length,
+      bestInk: this.progress.get(res.level, res.key).bestInk,
+      hasNext: t.kind === 'menu' && t.idx + 1 < LEVELS.length,
+      extra: t.kind === 'gift' && r.stars === 3 ? `${'Zurückschicken'}` : undefined,
     }, {
-      again: () => void this.startLevel(this.levelIdx, 'again'),
-      next: () => void this.startLevel(this.levelIdx + 1, 'next'),
-      levels: () => this.openLevels('toLevels'),
+      extra: () => void this.sendBack(res.level, r.inkUsed),
+      again: () => void this.startTarget(t, 'again'),
+      next: () => { if (t.kind === 'menu') void this.startTarget({ kind: 'menu', idx: t.idx + 1 }, 'next'); },
+      levels: () => this.openLevels('toLevels', tab),
     }));
   }
 
@@ -389,7 +480,7 @@ export class App {
     this.toolbar.setPlanning(planning, sim.level.areas[sim.activeArea].boost !== 0);
     this.touch.show(sim.mode === 'foot');
     this.toolbar.setReplan(sim.canReplan);
-    this.hud.update(sim, this.testRun ? 0 : this.levelIdx + 1);
+    this.hud.update(sim, this.testRun ? 'Probe:' : this.hudPrefix);
     const foot = sim.mode === 'foot';
     const at = foot ? sim.player.center : sim.level.stations[sim.activeArea].pos;
     const strokes = sim.ink.strokes.filter((s) => s.area === sim.activeArea).length;

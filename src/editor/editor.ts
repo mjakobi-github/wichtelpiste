@@ -6,7 +6,8 @@ import { LEVEL_FILES } from '../levels';
 import type { Solution } from '../levels/solveRunner';
 import { checkSolution, type SolutionCheck } from '../levels/solutionCheck';
 import type { Recording } from './recorder';
-import { Draft, type DraftData } from './draft';
+import type { DraftData } from './draft';
+import { MyLevels } from '../app/library';
 import { EditorState } from './state';
 import { newLevel } from './template';
 import { addElement, duplicateElement, getElement, moveElement, repairLevel, type ElementRef } from './doc';
@@ -19,12 +20,20 @@ import { idOfFile } from './savePlan';
 import { PointerTool, type EditorAction, type Mods } from './pointer';
 import { EditorOverlay } from './overlay';
 import { EditorUi, PALETTE, type TopAction } from './panels';
+import { RenderGate } from './renderGate';
+import { layoutFor } from './layout';
+import { confirmDialog, textDialog } from '../ui/dialog';
+import { Progress, progressKey } from '../app/progress';
+import { Prefs } from './prefs';
+import { reachFrom } from './jumpReach';
+import { autoInkAllowed, fieldsForMode, friendlyIssue, paletteFor } from './modes';
 
 export interface EditorHost {
   view: GameView;
   uiRoot: HTMLElement;
   stageHost: HTMLElement;
-  startTest(level: LevelData, fromArea: number | null, onBack: (rec: Recording) => void): void;
+  /** progressKey: Sterne/Rekord der Probefahrt zählen für dieses eigene Level (Herausforderung beim Teilen). */
+  startTest(level: LevelData, fromArea: number | null, onBack: (rec: Recording) => void, progressKey?: string): void;
   close(): void;
   toast(text: string, ms?: number): void;
 }
@@ -43,8 +52,11 @@ const backdropKey = (l: LevelData): string => `${l.theme.seed}/${l.theme.auroraH
 
 /** Level-Editor: Dokument + Verlauf, Zeiger/Tastatur, Darstellung über GameView, HTML-Leisten. */
 export class Editor {
-  private readonly draft = new Draft(store());
+  /** Eigene Levels; der Editor bearbeitet genau eines (uid) und speichert jede Änderung. */
+  private readonly lib = new MyLevels(store());
+  private uid = '';
   private doc: DraftData;
+  private saveWarned = false;
   /** Level + Lösung mit gemeinsamem Verlauf; doc.level/doc.solution spiegeln den Stand (doc.level auch Vorschau). */
   private state: EditorState;
   private still: Simulation;
@@ -58,6 +70,11 @@ export class Editor {
   private levelPanel = false;
   private fromArea: number | null = null;
   private dirtyView = true;
+  /** Zeichnen nur bei Änderungen (Leerlauf: keine Bilder). */
+  private readonly gate = new RenderGate();
+  private readonly prefs: Prefs;
+  /** Tinte von Hand gesetzt (Profi) → keine automatische Anpassung mehr. */
+  private inkTouched = false;
   private lastBackdrop = '';
   private checks: SolutionCheck | null = null;
   private checkTimer = 0;
@@ -68,14 +85,18 @@ export class Editor {
 
   /** resume: direkt mit dem Entwurf weitermachen (z. B. nach dem Neuladen durch Speichern), ohne Startdialog. */
   constructor(private readonly host: EditorHost, resume = false) {
-    this.doc = this.draft.load() ?? { level: newLevel(), solution: null, file: null, camera: null };
-    this.doc = { ...this.doc, level: repairLevel(this.doc.level) };
+    this.prefs = new Prefs(store(), host.view.quality === 'low');
+    this.lib.migrateDraft();
+    const latest = this.lib.list()[0] ?? this.lib.create(newLevel(), null);
+    this.uid = latest.uid;
+    this.doc = { level: repairLevel(latest.level), solution: latest.solution, file: latest.file ?? null, camera: latest.camera ?? null };
     if (!this.doc.file) {
       // Seite wurde nach dem Speichern neu geladen, bevor die Antwort ankam: Datei am Inhalt wiederfinden.
       const same = LEVEL_FILES.find((f) => f.level.id === this.doc.level.id && JSON.stringify(f.level) === JSON.stringify(this.doc.level));
       if (same) this.doc = { ...this.doc, file: same.file };
     }
-    this.started = resume;
+    // resume: nach dem Neuladen durch „Ins Spiel speichern“ direkt weiterbauen (ohne Liste)
+    this.started = !resume;
     this.state = new EditorState(this.doc.level, this.doc.solution);
     this.still = new Simulation(this.doc.level);
     host.view.editorLayer.addChild(this.overlay.container);
@@ -88,6 +109,7 @@ export class Editor {
       issue: (i) => this.focusIssue(i),
       suggest: () => this.suggest(),
       testFrom: (v) => { this.fromArea = v; },
+      closeSide: () => { this.selected = null; this.levelPanel = false; this.refreshUi(); },
     });
     this.ui.fileInput.addEventListener('change', () => void this.readImport());
     this.pointer = new PointerTool({
@@ -103,10 +125,15 @@ export class Editor {
 
   // ------------------------------------------------------------ Sichtbarkeit
 
-  show(): void {
+  /** fromTitle: Einstieg über „Bauen“ → zuerst die Liste „Meine Levels“. */
+  show(fromTitle = false): void {
     this.visible = true;
+    this.ui.setLayout(layoutFor(window.innerWidth, window.innerHeight));
     const v = this.host.view;
     v.editMode = true;
+    v.setManualRender(true);
+    v.setSketch(this.prefs.get().view === 'sketch');
+    this.gate.invalidate('view');
     this.lastBackdrop = '';
     this.dirtyView = true;
     this.overlay.container.visible = true;
@@ -116,9 +143,9 @@ export class Editor {
     else this.focusSpawn();
     this.refreshUi();
     this.scheduleCheck();
-    if (!this.started) {
+    if (fromTitle) {
+      if (this.started) this.showStart();
       this.started = true;
-      this.showStart();
     }
   }
 
@@ -126,6 +153,8 @@ export class Editor {
     if (this.visible) this.doc = { ...this.doc, camera: this.host.view.cameraState() };
     this.save();
     this.visible = false;
+    this.host.view.setManualRender(false);
+    this.host.view.setSketch(false);
     this.pointer.cancel();
     this.overlay.clear();
     this.overlay.container.visible = false;
@@ -133,14 +162,24 @@ export class Editor {
     this.ui.hideStart();
   }
 
+  /** Vom App-Takt jedes Bild aufgerufen; zeichnet nur, wenn sich etwas geändert hat. */
   render(): void {
-    if (!this.visible) return;
+    if (!this.visible || !this.gate.take()) return;
     if (this.dirtyView) this.rebuildView();
     const v = this.host.view;
-    v.renderStill(this.still);
+    v.renderStill(this.still, false);
     const cam = v.camera;
     const warned = this.issues.filter((i) => i.ref).map((i) => i.ref!);
-    this.overlay.draw(this.doc.level, this.selected, cam.scale, { x: cam.left, y: cam.top, w: cam.viewW, h: cam.viewH }, this.grid, warned);
+    const p = this.prefs.get();
+    let jumps: ReturnType<typeof reachFrom> = [];
+    try { jumps = p.showJumps && this.selected ? reachFrom(this.doc.level, this.selected) : []; } catch { jumps = []; }
+    this.overlay.draw(this.doc.level, this.selected, cam.scale, { x: cam.left, y: cam.top, w: cam.viewW, h: cam.viewH },
+      { grid: this.grid, warned, sketch: p.view === 'sketch', jumps });
+    v.renderNow();
+  }
+
+  private invalidate(): void {
+    this.gate.invalidate('view');
   }
 
   private rebuildView(): void {
@@ -159,23 +198,55 @@ export class Editor {
   // ------------------------------------------------------------ Startdialog
 
   private showStart(): void {
-    const d = this.draft.load();
+    this.save();
+    const progress = new Progress(store());
     this.ui.showStart({
-      draft: d ? d.level.name : null,
-      levels: LEVEL_FILES.map((f) => ({ file: f.file, name: f.level.name })),
+      mine: this.lib.list().map((m) => ({
+        uid: m.uid, name: m.level.name, current: m.uid === this.uid,
+        stars: progress.get(m.level, progressKey.mine(m.uid)).stars,
+      })),
+      menuLevels: import.meta.env.DEV ? LEVEL_FILES.map((f) => ({ file: f.file, name: f.level.name })) : null,
     }, {
-      resume: () => this.ui.hideStart(),
+      open: (uid) => {
+        if (uid !== this.uid) this.open(uid);
+        this.ui.hideStart();
+        this.invalidate();
+      },
       fresh: () => this.load({ level: newLevel(), solution: null, file: null, camera: null }),
-      open: (i) => {
+      openMenuLevel: (i) => {
         const f = LEVEL_FILES[i];
         this.load({ level: structuredClone(f.level), solution: solutionFor(f.level.id), file: f.file, camera: null });
       },
       importFile: () => this.ui.fileInput.click(),
+      close: () => this.host.close(),
     });
   }
 
-  private load(d: DraftData): void {
+  /** Aktuelles Level löschen (mit Rückfrage), danach die Liste zeigen. */
+  private async deleteLevel(): Promise<void> {
+    const ok = await confirmDialog(this.host.uiRoot, {
+      title: 'Level löschen?', text: `„${this.doc.level.name}“ ist danach weg – das kann man nicht rückgängig machen.`, ok: 'Löschen', danger: true,
+    });
+    if (!ok) return;
+    this.lib.remove(this.uid);
+    const next = this.lib.list()[0];
+    if (next) this.open(next.uid);
+    else this.load({ level: newLevel(), solution: null, file: null, camera: null });
+    this.showStart();
+  }
+
+  /** Eigenes Level zum Bearbeiten öffnen. */
+  private open(id: string): void {
+    const m = this.lib.get(id);
+    if (!m) return;
+    this.uid = '';
+    this.load({ level: repairLevel(m.level), solution: m.solution, file: m.file ?? null, camera: m.camera ?? null }, m.uid);
+  }
+
+  /** Lädt ein Level in den Editor; ohne uid wird es als neues eigenes Level angelegt. */
+  private load(d: DraftData, existingUid?: string): void {
     this.ui.hideStart();
+    this.uid = existingUid ?? this.lib.create(d.level, d.solution).uid;
     this.doc = d;
     this.state = new EditorState(d.level, d.solution);
     this.selected = null;
@@ -204,6 +275,9 @@ export class Editor {
   private setLevel(l: LevelData, commit: boolean): void {
     if (l === this.doc.level && !commit) return;
     this.doc = { ...this.doc, level: l };
+    this.invalidate();
+    // Vorschau beim Ziehen: nur die Editor-Ebene folgt; die Welt wird erst beim Loslassen neu gebaut.
+    if (!commit) return;
     this.dirtyView = true;
     if (commit) {
       this.state.commit(l);
@@ -220,8 +294,8 @@ export class Editor {
         case 'select': this.selected = a.ref; this.levelPanel = false; this.refreshUi(); break;
         case 'preview': this.setLevel(a.level, false); break;
         case 'commit': this.setLevel(a.level, true); break;
-        case 'pan': this.host.view.panBy(a.dx, a.dy); break;
-        case 'zoom': this.host.view.zoomAt(a.f, a.x, a.y); break;
+        case 'pan': this.host.view.panBy(a.dx, a.dy); this.invalidate(); break;
+        case 'zoom': this.host.view.zoomAt(a.f, a.x, a.y); this.invalidate(); break;
         case 'place': {
           const r = addElement(this.doc.level, a.kind, a.at, a.variant);
           this.selected = r.ref;
@@ -275,6 +349,7 @@ export class Editor {
 
   private field(key: string, value: Field['value'], level: boolean): void {
     if (level) {
+      if (/^(ink|boost)/.test(key)) this.inkTouched = true;
       this.setLevel(applyLevelField(this.doc.level, key, value), true);
       if (key === 'id' && this.doc.level.id !== value) this.host.toast('ID: nur a–z, 0–9 und -');
       return;
@@ -323,22 +398,62 @@ export class Editor {
     if (!c) return;
     const next = suggestBudgets(this.doc.level, c.areas);
     const areas = this.doc.level.areas.map((a, i) => (c.areas[i]?.ok ? next[i] : a));
-    this.setLevel({ ...this.doc.level, areas }, true);
+    this.adjustBudgets(areas);
     this.host.toast('Tinte = 1,5 × deine Lösung');
+  }
+
+  /** Tinte anpassen; Sterne/Rekord des eigenen Levels gehen dabei mit (die Lösung bleibt gültig). */
+  private adjustBudgets(areas: LevelData['areas']): void {
+    const before = this.doc.level;
+    this.setLevel({ ...before, areas }, true);
+    new Progress(store()).rekey(before, this.doc.level, progressKey.mine(this.uid));
+  }
+
+  /** Teilen: nur, wenn das Level selbst geschafft wurde (gemerkte Lösung kommt in jedem Abschnitt an). */
+  private async share(): Promise<void> {
+    if (!checkSolution(this.doc.level, this.doc.solution).ok) {
+      this.host.toast('Erst einmal selbst schaffen, dann kannst du teilen!', 2500);
+      return;
+    }
+    if (this.doc.level.name === 'Neues Level' || !this.doc.level.name.trim()) {
+      const name = await textDialog(this.host.uiRoot, { title: 'Wie heißt dein Level?', value: '', max: 30, ok: 'Weiter' });
+      if (!name) return;
+      this.setLevel(applyLevelField(this.doc.level, 'name', name), true);
+    }
+    const progress = new Progress(store()).get(this.doc.level, progressKey.mine(this.uid));
+    const meta = { from: this.prefs.get().senderName, challengeInk: progress.stars === 3 ? progress.bestInk : null };
+    // Geprüft wird, was beim Empfänger ankommt (der Link rundet Werte)
+    const { shareableCheck } = await import('../share/shareCheck');
+    const sc = await shareableCheck(this.doc.level, this.doc.solution, meta);
+    if (!sc.ok) {
+      this.host.toast('Nach dem Teilen käme deine Linie nicht mehr an – Raster einschalten und nochmal probespielen', 4000);
+      return;
+    }
+    const { openShareDialog } = await import('../share/shareDialog');
+    await openShareDialog(this.host.uiRoot, sc.payload, (n) => this.prefs.set({ senderName: n }));
   }
 
   private test(): void {
     if (this.issues.some((i) => i.level === 'error')) { this.host.toast('Erst die Fehler in der Liste beheben', 2200); return; }
     this.hide();
     const level = this.doc.level;
-    this.host.startTest(level, this.fromArea, (rec) => this.returnFromTest(rec));
+    this.host.startTest(level, this.fromArea, (rec) => this.returnFromTest(rec), progressKey.mine(this.uid));
   }
 
   private returnFromTest(rec: Recording): void {
     const n = this.state.mergeRecording(rec);
     if (n > 0) {
       this.syncFromState();
-      this.host.toast(n === 1 ? 'Lösung für einen Abschnitt gemerkt' : `Lösung für ${n} Abschnitte gemerkt`, 2000);
+      if (autoInkAllowed(this.prefs.get().mode, this.inkTouched)) {
+        // Einfach-Modus: Tinte passt sich der geschafften Fahrt an (die Lösung bleibt gültig).
+        const c = checkSolution(this.doc.level, this.doc.solution);
+        const next = suggestBudgets(this.doc.level, c.areas);
+        const areas = this.doc.level.areas.map((a, i) => (c.areas[i]?.ok ? next[i] : a));
+        this.adjustBudgets(areas);
+        this.host.toast('Geschafft! Tinte angepasst', 2000);
+      } else {
+        this.host.toast(n === 1 ? 'Lösung für einen Abschnitt gemerkt' : `Lösung für ${n} Abschnitte gemerkt`, 2000);
+      }
     }
     this.scheduleCheck();
   }
@@ -386,7 +501,13 @@ export class Editor {
   }
 
   private save(): void {
-    this.draft.save(this.doc);
+    if (!this.uid) return;
+    const r = this.lib.save({ uid: this.uid, level: this.doc.level, solution: this.doc.solution, updatedAt: Date.now(), file: this.doc.file, camera: this.doc.camera });
+    if (!r.ok && !this.saveWarned) {
+      this.saveWarned = true;
+      this.host.toast(r.error, 4000);
+    }
+    if (r.ok) this.saveWarned = false;
   }
 
   // ------------------------------------------------------------ Oberfläche
@@ -402,26 +523,51 @@ export class Editor {
       case 'save': void this.saveProject(); break;
       case 'export': this.exportDownload(); break;
       case 'import': this.ui.fileInput.click(); break;
+      case 'sketch': {
+        const sketch = this.prefs.get().view !== 'sketch';
+        this.prefs.set({ view: sketch ? 'sketch' : 'pretty' });
+        this.host.view.setSketch(sketch);
+        this.lastBackdrop = '';
+        this.dirtyView = true;
+        this.refreshUi();
+        break;
+      }
+      case 'menu': this.ui.toggleMenu(); break;
+      case 'delete': void this.deleteLevel(); break;
+      case 'share': void this.share(); break;
+      case 'issues': break;
+      case 'mode': {
+        const mode = this.prefs.get().mode === 'pro' ? 'simple' : 'pro';
+        this.prefs.set({ mode });
+        if (mode === 'simple') this.levelPanel = false;
+        if (this.placing !== null && !paletteFor(mode).includes(PALETTE[this.placing])) this.placing = null;
+        this.host.toast(mode === 'pro' ? 'Profi: alle Bausteine und Werte' : 'Einfach: die wichtigsten Bausteine');
+        this.refreshUi();
+        break;
+      }
+      case 'jumps': this.prefs.set({ showJumps: !this.prefs.get().showJumps }); this.refreshUi(); break;
       case 'level': this.levelPanel = !this.levelPanel; if (this.levelPanel) this.selected = null; this.refreshUi(); break;
     }
   }
 
   private refreshUi(): void {
+    this.invalidate();
     const l = this.doc.level;
     this.issues = levelIssues(l);
     this.ui.setTop({
       canUndo: this.state.canUndo, canRedo: this.state.canRedo, grid: this.grid, pan: this.panTool,
-      canSave: canSaveToProject, levelOpen: this.levelPanel, testable: !this.issues.some((i) => i.level === 'error'),
+      canSave: canSaveToProject, levelOpen: this.levelPanel, pro: this.prefs.get().mode === 'pro', sketch: this.prefs.get().view === 'sketch', jumps: this.prefs.get().showJumps, testable: !this.issues.some((i) => i.level === 'error'),
     });
     if (this.fromArea !== null && this.fromArea >= l.stations.length) this.fromArea = null;
     this.ui.setStations(l.stations.length, this.fromArea);
-    this.ui.setPalette(this.placing);
-    if (this.levelPanel) this.ui.setSide(`Level: ${l.name}`, levelFields(l), true, false);
+    const mode = this.prefs.get().mode;
+    this.ui.setPalette(this.placing, new Set(paletteFor(mode).map((p) => PALETTE.indexOf(p))));
+    if (this.levelPanel && mode === 'pro') this.ui.setSide(`Level: ${l.name}`, levelFields(l), true, false);
     else if (this.selected) {
       const sel = this.selected;
       const n = sel.kind === 'station' || sel.kind === 'dismount' ? ` ${sel.index + 1}` : '';
       const name = sel.kind === 'mover' ? ((getElement(l, sel) as { kind: string }).kind === 'crow' ? 'Krähe' : 'Glocke') : elementName(sel);
-      this.ui.setSide(`${name}${n}`, fieldsFor(l, sel), false, true);
+      this.ui.setSide(`${name}${n}`, fieldsForMode(mode, fieldsFor(l, sel)), false, true);
     } else this.ui.setSide(null, [], false, false);
     this.refreshStatus();
   }
@@ -429,7 +575,8 @@ export class Editor {
   private refreshStatus(): void {
     const c = this.checks;
     const areas = this.doc.level.areas.map((_, i) => ({ solved: c?.areas[i]?.ok ?? false, reason: c?.areas[i]?.reason ?? 'Noch nicht geprüft' }));
-    this.ui.setStatus(areas, !!c && c.areas.some((a) => a.ok), this.issues);
+    const mode = this.prefs.get().mode;
+    this.ui.setStatus(areas, mode === 'pro' && !!c && c.areas.some((a) => a.ok), this.issues.map((i) => ({ ...i, text: friendlyIssue(i, mode) })));
   }
 
   // ------------------------------------------------------------ Eingabe
@@ -466,14 +613,19 @@ export class Editor {
       e.preventDefault();
       const p = rel(e as unknown as PointerEvent);
       this.host.view.zoomAt(Math.pow(1.15, -e.deltaY / 100), p.x, p.y);
+      this.invalidate();
     }, { passive: false });
     el.addEventListener('contextmenu', (e) => { if (this.visible) e.preventDefault(); });
     window.addEventListener('keydown', (e) => this.keyDown(e));
+    window.addEventListener('resize', () => {
+      if (this.visible) this.ui.setLayout(layoutFor(window.innerWidth, window.innerHeight));
+      this.invalidate();
+    });
     window.addEventListener('keyup', (e) => { if (e.code === 'Space') this.spaceHeld = false; });
   }
 
   private keyDown(e: KeyboardEvent): void {
-    if (!this.visible) return;
+    if (!this.visible || this.ui.startOpen || document.querySelector('.dialog')) return;
     const t = e.target as HTMLElement | null;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA')) return;
     const ctrl = e.ctrlKey || e.metaKey;
@@ -501,6 +653,7 @@ export class Editor {
   private zoomStep(f: number): void {
     const c = this.host.view.camera;
     this.host.view.zoomAt(f, c.screenW / 2, c.screenH / 2);
+    this.invalidate();
   }
 }
 

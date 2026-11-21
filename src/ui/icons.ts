@@ -39,6 +39,10 @@ const PATHS = {
   copy: `<rect ${S} x="8" y="8" width="12" height="12" rx="2"/><path ${S} d="M4 16V5a1 1 0 0 1 1-1h11"/>`,
   check: `<path ${S} d="M5 12l5 5 9-10"/>`,
   warn: `<path ${S} d="M12 3l10 18H2z"/><path ${S} d="M12 10v5M12 18v.5"/>`,
+  sketch: `<rect ${S} x="3" y="13" width="8" height="7" rx="1"/><rect ${S} x="13" y="9" width="8" height="11" rx="1"/><path ${S} d="M5 9l3-4 3 4"/>`,
+  shareIcon: `<circle ${S} cx="6" cy="12" r="2.5"/><circle ${S} cx="18" cy="6" r="2.5"/><circle ${S} cx="18" cy="18" r="2.5"/><path ${S} d="M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6"/>`,
+  more: `<circle cx="5" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="19" cy="12" r="2" fill="currentColor"/>`,
+  jumpArc: `<path ${S} d="M3 19c3-14 15-14 18 0" stroke-dasharray="3 3"/><path ${S} d="M2 19h5M17 19h5"/>`,
 } as const;
 
 export type IconName = keyof typeof PATHS;

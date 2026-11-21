@@ -79,43 +79,53 @@ Die Web-Version ist eine installierbare App (PWA). Am Handy die Seite öffnen,
 dann „Zum Startbildschirm hinzufügen“ wählen. Danach startet sie wie eine App
 im Vollbild und läuft auch ohne Internet.
 
-## Levels bauen (Editor)
+## Bauen und Teilen
 
-`npm run dev` starten, auf dem Titelbildschirm **Editor** wählen. Auf der
-veröffentlichten Seite gibt es den Editor nur mit `?editor` (dann ohne
-Speichern ins Projekt, nur Export/Import als Datei).
+Auf dem Titelbildschirm **Bauen** tippen. Es erscheint **Meine Levels**:
+ein neues Level anfangen oder ein eigenes weiterbauen. Alles wird im Browser
+gespeichert, nichts geht beim Neuladen verloren.
 
-1. **Neues Level** anlegen oder ein vorhandenes öffnen. Ein angefangener
-   Entwurf wird im Browser gemerkt und lässt sich fortsetzen.
-2. **Bauen:** Baustein links wählen und in die Welt tippen (Umschalt: mehrere
-   nacheinander). **Boden** legt ein Haus an, dessen Dach am angetippten Punkt
-   liegt. **Balken** ist eine schmale Plattform; jede Plattform ab 50 px Höhe
-   wird als Haus gezeichnet. Elemente antippen und ziehen, an den weißen Griffen die Größe,
-   die Bahn von Glocke und Krähe oder die Richtung einer Feder ändern. Feinwerte
-   stehen rechts im Eigenschaften-Feld. **Level** (oben rechts) öffnet die
-   Profi-Einstellungen: Name, ID, Weltgröße, Polarlicht, Tinte je Abschnitt.
-3. **Probespielen** (wahlweise ab einer Station). Jede geschaffte Fahrt wird als
-   Lösung ihres Abschnitts gemerkt; unten zeigt „Lösung“, welche Abschnitte
-   gelöst sind. **Tinte vorschlagen** setzt die Tinte auf das 1,5-Fache deiner
-   Lösung.
-4. **Ins Spiel speichern** schreibt `src/levels/NN-<id>.json` und
-   `src/levels/solutions/<id>.json`. Gespeichert wird nur, wenn deine Lösung
-   noch ankommt; sonst nennt der Editor den Grund. Danach lädt die Seite neu,
-   der Editor ist wieder offen, und das Level steht am Ende der Levelauswahl.
-   Committen und pushen, fertig.
+1. **Bauen:** Baustein unten (Handy) bzw. links (PC) wählen und in die Welt
+   tippen. Elemente antippen und ziehen; an den weißen Punkten ändert man die
+   Größe. **Boden** legt ein Haus an, dessen Dach am angetippten Punkt liegt.
+2. **Sprungweite:** Ist ein Boden, der Start oder eine Landezone gewählt,
+   zeigen grüne Bögen, wie weit und hoch die Elfe von dort springen kann.
+3. **Probespielen** (▶). Wer sein Level geschafft hat, sieht oben
+   „✓ geschafft“; die Tinte passt sich im Einfach-Modus automatisch an.
+4. **Teilen** (Teilen-Symbol): erst möglich, wenn man das Level selbst
+   geschafft hat. Name eintragen, dann den **QR-Code** scannen lassen oder
+   **Teilen**/**Link kopieren** und im Messenger verschicken. Wer den Link
+   öffnet, sieht „Geschenkt von …“ und kann sofort spielen – ohne Installation,
+   ohne Server. Wer das eigene Level mit 3 Sternen geschafft hat, schickt seinen
+   Tinten-Rekord als Herausforderung mit.
+5. Empfangene Levels liegen unter **Level wählen → Geschenkt**. Mit 3 Sternen
+   kann man sie mit dem eigenen Rekord **zurückschicken**.
+
+Im **⋯-Menü**: **Profi-Modus** (alle Bausteine wie Glocke, Krähe, Lametta,
+Zeichenverbot, Hinweise und alle Zahlenwerte, Level-Einstellungen),
+**Skizze** (schlichte Ansicht, schont Akku und Rechner), Sprungweite, Raster,
+Export/Import als Datei, Level löschen.
+
+### Am PC (Menü-Levels für das Spiel)
+
+Mit `npm run dev` gibt es in „Meine Levels“ zusätzlich **Menü-Level öffnen**
+und den Knopf **Ins Spiel speichern**: Er schreibt `src/levels/NN-<id>.json`
+und `src/levels/solutions/<id>.json` – nur, wenn deine gemerkte Lösung noch
+ankommt. Danach lädt die Seite neu, der Editor ist wieder offen, das Level steht
+am Ende der Levelauswahl. Committen und pushen, fertig.
 
 | Aktion | Maus/Tastatur | Touch |
 |---|---|---|
 | Auswählen, verschieben | Klicken, ziehen | Antippen, ziehen |
 | Kamera verschieben | Leertaste + ziehen, mittlere Taste, ins Leere ziehen | ins Leere ziehen, zwei Finger |
 | Zoomen | Mausrad, + / − | zwei Finger |
-| Ohne Raster ziehen | Alt halten | Raster-Knopf |
-| Rückgängig / Wiederholen | Strg+Z / Strg+Y | Knöpfe oben |
-| Duplizieren / Löschen | Strg+D / Entf | Knöpfe rechts |
+| Ohne Raster ziehen | Alt halten | Raster im ⋯-Menü |
+| Rückgängig / Wiederholen | Strg+Z / Strg+Y | Knopf oben / ⋯-Menü |
+| Duplizieren / Löschen | Strg+D / Entf | Knöpfe im Eigenschaften-Blatt |
 | Feinschieben | Pfeiltasten (Umschalt: 1 px) | – |
 | Probespielen / Speichern | T / Strg+S | Knöpfe oben |
 
-Ändert sich ein vorhandenes Level, beginnen Sterne und Rekorde dafür neu.
+Ändert sich ein Level, beginnen Sterne und Rekorde dafür neu.
 
 ## Entwicklung
 

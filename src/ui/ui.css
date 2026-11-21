@@ -219,3 +219,38 @@ button.hero { font-size: 26px; padding: 12px 36px; border-radius: 18px; animatio
   100% { transform: translate(34vw, 4vh); opacity: 0; }
 }
 @keyframes bounce { 50% { transform: translateY(-12px); } }
+
+/* ---------------------------------------------------------------- Eigene Dialoge */
+.dialog { position: absolute; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(4, 6, 20, 0.6); pointer-events: auto; }
+.dialog-panel { width: min(100%, 440px); text-align: center; }
+.dialog-panel p { color: var(--muted); margin: 0 0 16px; line-height: 1.4; }
+.dialog-input { font: inherit; font-size: 18px; width: 100%; min-height: 48px; margin-bottom: 16px; padding: 0 12px; color: var(--text); background: var(--glass-strong); border: 1px solid var(--glass-edge); border-radius: 12px; user-select: text; -webkit-user-select: text; touch-action: auto; }
+button.danger-btn { color: #fff; background: #c8354a; border: none; font-weight: 700; }
+
+/* ---------------------------------------------------------------- Reiter, eigene/geschenkte Karten, Geschenk-Karte */
+.panel-head .tabs { margin-left: auto; display: flex; gap: 6px; }
+.tab { min-height: 44px; padding: 0 14px; font-size: 16px; }
+.tab.on { border-color: var(--accent); color: var(--accent); }
+.gift-card { position: relative; background: var(--glass); border: 1px solid var(--glass-edge); border-radius: 14px; grid-template-rows: auto auto auto; pointer-events: auto; }
+.gift-card .card-num { grid-row: 1 / 4; }
+.gift-card { padding-right: 48px !important; }
+.card-hit { position: absolute; inset: 0; background: transparent; border: none; border-radius: inherit; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none; }
+.card-from { font-size: 13px; color: var(--muted); }
+.card-del { position: absolute; top: 4px; right: 4px; min-width: 44px; min-height: 44px; padding: 0; color: var(--danger); background: transparent; border: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.gift-panel h2 { margin: 4px 0 8px; }
+.gift-icon .icon { width: 56px; height: 56px; filter: drop-shadow(0 0 12px rgba(255, 200, 100, 0.6)); }
+.gift-from { margin: 6px 0 0; color: var(--text); }
+.gift-challenge { color: var(--accent); font-weight: 600; font-size: 18px; }
+.gift-note { font-size: 13px; margin: 12px 0 0; }
+
+/* ---------------------------------------------------------------- Teilen */
+.share-panel { width: min(100%, 640px); text-align: left; }
+.share-panel h2 { text-align: center; }
+.share-name { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; color: var(--muted); }
+.share-name input, .share-link { flex: 1; font: inherit; font-size: 16px; min-height: 44px; padding: 0 10px; color: var(--text); background: var(--glass-strong); border: 1px solid var(--glass-edge); border-radius: 10px; user-select: text; -webkit-user-select: text; touch-action: auto; }
+.share-body { display: flex; gap: 16px; align-items: flex-start; }
+.share-qr { width: min(220px, 40vh); flex: none; }
+.share-qr svg { width: 100%; height: auto; display: block; border-radius: 8px; }
+.share-actions { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.share-hint { font-size: 14px; color: var(--muted); margin: 4px 0; }
+.share-error { color: var(--danger); }

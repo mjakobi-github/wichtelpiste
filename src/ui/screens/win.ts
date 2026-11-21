@@ -3,10 +3,10 @@ import { formatInk } from '../../app/flow';
 import { icon } from '../icons';
 import { bindActions } from './common';
 
-export interface WinInfo { result: WinResult; newBestInk: boolean; bestInk: number | null; hasNext: boolean; backLabel?: string }
+export interface WinInfo { result: WinResult; newBestInk: boolean; bestInk: number | null; hasNext: boolean; backLabel?: string; extra?: string }
 
 /** Siegbildschirm: Sterne fliegen nacheinander ein, Geschenke, Tinte, Rekord. */
-export function renderWin(el: HTMLElement, w: WinInfo, h: { again: () => void; next: () => void; levels: () => void }): void {
+export function renderWin(el: HTMLElement, w: WinInfo, h: { again: () => void; next: () => void; levels: () => void; extra?: () => void }): void {
   const r = w.result;
   let starRow = '';
   for (let i = 0; i < 3; i++) {
@@ -24,8 +24,9 @@ export function renderWin(el: HTMLElement, w: WinInfo, h: { again: () => void; n
     <div class="row">
       <button data-a="again">${icon('restart')} Nochmal</button>
       ${w.hasNext ? `<button class="primary" data-a="next">${icon('play')} Weiter</button>` : ''}
+      ${w.extra ? `<button class="primary" data-a="extra">${icon('shareIcon')} ${w.extra}</button>` : ''}
       <button data-a="levels">${icon('levels')} ${w.backLabel ?? 'Levelauswahl'}</button>
     </div>
   </div>`;
-  bindActions(el, { again: h.again, next: h.next, levels: h.levels });
+  bindActions(el, { again: h.again, next: h.next, levels: h.levels, ...(h.extra ? { extra: h.extra } : {}) });
 }

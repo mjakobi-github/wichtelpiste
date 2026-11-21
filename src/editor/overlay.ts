@@ -1,5 +1,5 @@
 import { Container, Graphics, Text } from 'pixi.js';
-import type { LevelData, Mover, Rect, Spring } from '../sim/types';
+import type { LevelData, Mover, Rect, Spring, Vec2 } from '../sim/types';
 import { moverPosition } from '../sim/elements';
 import { getElement, listElements, type ElementKind, type ElementRef } from './doc';
 import { elementBounds, handlesFor } from './handles';
@@ -10,6 +10,14 @@ const COLOR: Record<ElementKind, number> = {
   noDraw: 0x8090ff, hint: 0xffd27a,
 };
 const SELECT = 0xffd27a;
+
+export interface OverlayOpts {
+  grid: boolean;
+  warned: readonly ElementRef[];
+  sketch: boolean;
+  /** Sprungbögen (Weltkoordinaten) für die aktuelle Auswahl */
+  jumps: readonly { origin: Vec2; arc: Vec2[] }[];
+}
 const GRID = 50;
 
 /** Editor-Ebene in Weltkoordinaten: Umrisse, Auswahl, Griffe, Raster, Nummern. Linienbreiten in Bildschirm-px. */
@@ -23,7 +31,8 @@ export class EditorOverlay {
     this.container.addChild(this.g, this.labels);
   }
 
-  draw(l: LevelData, selected: ElementRef | null, scale: number, view: Rect, grid: boolean, warned: readonly ElementRef[]): void {
+  draw(l: LevelData, selected: ElementRef | null, scale: number, view: Rect, opts: OverlayOpts): void {
+    const { grid, warned, sketch, jumps } = opts;
     const g = this.g.clear();
     const px = (n: number): number => n / scale;
     let used = 0;
@@ -50,6 +59,15 @@ export class EditorOverlay {
       g.stroke({ width: px(1), color: 0xffffff, alpha: 0.07 });
     }
     g.rect(0, 0, l.worldW, l.worldH).stroke({ width: px(2), color: 0x9fe8ff, alpha: 0.5 });
+
+    if (sketch) this.sketchFill(l);
+    for (const j of jumps) {
+      const last = j.arc[j.arc.length - 1];
+      g.poly([j.origin, ...j.arc, { x: last.x, y: j.origin.y }].flatMap((p) => [p.x, p.y])).fill({ color: 0x7dffb0, alpha: 0.08 });
+      g.moveTo(j.arc[0].x, j.arc[0].y);
+      for (const p of j.arc) g.lineTo(p.x, p.y);
+      g.stroke({ width: px(2), color: 0x7dffb0, alpha: 0.8 });
+    }
 
     const warnedSet = new Set(warned.map((r) => `${r.kind}:${r.index}`));
     for (const ref of listElements(l)) {
@@ -78,12 +96,40 @@ export class EditorOverlay {
 
     if (selected) {
       const b = elementBounds(l, selected);
-      g.rect(b.x, b.y, b.w, b.h).stroke({ width: px(3), color: SELECT });
+      g.rect(b.x, b.y, b.w, b.h).fill({ color: SELECT, alpha: 0.12 }).stroke({ width: px(3), color: SELECT });
       for (const h of handlesFor(l, selected)) {
         g.circle(h.pos.x, h.pos.y, px(8)).fill({ color: 0xffffff }).stroke({ width: px(2.5), color: 0x1a2350 });
       }
     }
     for (let i = used; i < this.pool.length; i++) this.pool[i].visible = false;
+  }
+
+  /** Skizze: Flächen und Objekte als einfache gefüllte Formen (ohne Spielgrafik). */
+  private sketchFill(l: LevelData): void {
+    const g = this.g;
+    for (const ref of listElements(l)) {
+      const b = elementBounds(l, ref);
+      const e = getElement(l, ref) as { ice?: boolean };
+      switch (ref.kind) {
+        case 'platform': g.rect(b.x, b.y, b.w, b.h).fill({ color: e.ice ? 0x9fe8ff : 0x3a4678, alpha: e.ice ? 0.55 : 0.9 }); break;
+        case 'gift': g.roundRect(b.x + 3, b.y + 3, b.w - 6, b.h - 6, 4).fill({ color: 0xe83350 }); break;
+        case 'chimney': g.rect(b.x, b.y + 10, b.w, b.h - 50).fill({ color: 0xa0523d }); break;
+        case 'station': g.rect(b.x + 10, b.y + 40, b.w - 20, b.h - 60).fill({ color: 0xffd27a, alpha: 0.35 }); break;
+        case 'checkpoint': g.rect(b.x + 10, b.y, 8, b.h).fill({ color: 0xffc060 }); break;
+        case 'icicle': case 'candy': g.rect(b.x, b.y, b.w, b.h).fill({ color: ref.kind === 'icicle' ? 0xbfefff : 0xff9db0 }); break;
+        case 'spring': g.rect(b.x, b.y, b.w, b.h).fill({ color: 0x40e0ff, alpha: 0.7 }); break;
+        case 'hazard': g.rect(b.x, b.y, b.w, b.h).fill({ color: 0xff4060, alpha: 0.6 }); break;
+        case 'mover': {
+          const m = getElement(l, ref) as Mover;
+          const p = moverPosition(m.path, 0);
+          g.circle(p.x, p.y, m.radius).fill({ color: 0xff4060, alpha: 0.6 });
+          break;
+        }
+        case 'noDraw': g.rect(b.x, b.y, b.w, b.h).fill({ color: 0x8090ff, alpha: 0.15 }); break;
+        case 'dismount': g.rect(b.x, b.y, b.w, b.h).fill({ color: 0x40ff90, alpha: 0.08 }); break;
+        default: break;
+      }
+    }
   }
 
   clear(): void {

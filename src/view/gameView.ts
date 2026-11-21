@@ -73,8 +73,12 @@ export class GameView {
   private fpsAcc = { ms: 0, n: 0 };
   private sledWasGrounded = true;
   private sledAir = 0;
-  /** Editor: Kamera frei, keine Qualitäts-Abstufung, Beweger-Bahnen sichtbar. */
+  /** Editor: Kamera frei, Beweger-Bahnen sichtbar, Rendern auf Anforderung. */
   editMode = false;
+  private roofKey = '';
+  private sketch = false;
+  /** Zähler für Messungen (Editor-Leistung). */
+  readonly stats = { roofBuilds: 0, stillRenders: 0 };
   /** Editor-Ebene (Umrisse, Griffe) mit derselben Kamera wie die Welt. */
   readonly editorLayer = new Container();
 
@@ -168,11 +172,21 @@ export class GameView {
 
   /** Editor: Welt neu aufbauen, Kamera bleibt; Kulisse nur neu, wenn nötig. */
   showLevel(level: LevelData, opts: { keepBackdrop: boolean }): void {
-    this.buildWorld(level, opts.keepBackdrop && this.backdrop !== null);
+    if (this.sketch) {
+      // Skizze: keine Kulisse, keine Häuser/Objekte – die Editor-Ebene zeichnet alles als einfache Formen.
+      this.level = level;
+      this.setWorldVisible(true);
+      this.applySketchVisibility();
+      this.camera.updateScale();
+      return;
+    }
+    this.buildWorld(level, opts.keepBackdrop && this.backdrop !== null, true);
+    this.applySketchVisibility();
     this.camera.updateScale();
   }
 
-  private buildWorld(level: LevelData, keepBackdrop: boolean): void {
+  /** reuseRoofs: Dächer/Häuser (teure Canvas-Texturen) behalten, wenn Plattformen, Seed und Höhe gleich sind. */
+  private buildWorld(level: LevelData, keepBackdrop: boolean, reuseRoofs = false): void {
     this.level = level;
     this.setWorldVisible(true);
     this.debug?.load(level);
@@ -186,20 +200,31 @@ export class GameView {
 
     if (!keepBackdrop) this.mountBackdrop(level.theme);
 
-    this.roofs?.destroy();
-    this.roofs = new Roofs(level);
-    this.roofLayer.addChild(this.roofs.container);
-    this.roofLights.addChild(this.roofs.lights);
+    const roofKey = JSON.stringify([level.platforms, level.theme.seed, level.worldH]);
+    if (!(reuseRoofs && this.roofs && roofKey === this.roofKey)) {
+      this.roofs?.destroy();
+      this.roofs = new Roofs(level);
+      this.roofLayer.addChild(this.roofs.container);
+      this.roofLights.addChild(this.roofs.lights);
+      this.roofKey = roofKey;
+      this.stats.roofBuilds++;
+    }
     this.particles.clear();
   }
 
   /** Editor: zeichnet den Ruhezustand der Simulation mit freier Kamera (kein Schritt, keine Ereignisse). */
-  renderStill(sim: Simulation): void {
+  /**
+   * Editor: zeichnet den Ruhezustand der Simulation mit freier Kamera (kein Schritt, keine Ereignisse).
+   * animate=false: Umgebung steht still (Rendern auf Anforderung).
+   */
+  renderStill(sim: Simulation, animate = true): void {
     if (!this.level) return;
     const now = performance.now();
-    const dt = Math.min(0.1, (now - this.lastTime) / 1000);
+    const frameMs = now - this.lastTime;
+    const dt = animate ? Math.min(0.1, frameMs / 1000) : 0;
     this.lastTime = now;
-    const t = now / 1000;
+    const t = animate ? now / 1000 : 0;
+    this.stats.stillRenders++;
     const cam = this.camera;
     cam.updateScale();
     cam.clampLoose({ w: this.level.worldW, h: this.level.worldH }, EDIT_MARGIN);
@@ -214,6 +239,39 @@ export class GameView {
     this.hazards?.update(sim, t, true);
     this.renderActors(sim, 1, dt, t);
     this.particles.update(dt);
+  }
+
+  /** Editor-Ansicht „Skizze“: Kulisse, Welt, Leuchten, Vordergrund und Vignette aus. Danach showLevel aufrufen. */
+  setSketch(on: boolean): void {
+    if (this.sketch === on) return;
+    this.sketch = on;
+    if (on) {
+      this.roofs?.destroy(); this.roofs = null; this.roofKey = '';
+      this.objects?.destroy(); this.objects = null;
+      this.hazards?.destroy(); this.hazards = null;
+      this.backdrop?.destroy(); this.backdrop = null;
+    }
+    this.applySketchVisibility();
+  }
+
+  private applySketchVisibility(): void {
+    const show = !this.sketch;
+    for (const c of [this.backLayer, this.world, this.bloomHost, this.frontLayer, this.vignette]) c.visible = show;
+  }
+
+  /** Editor: Pixi-Ticker anhalten und nur noch über renderNow() zeichnen (an), oder normal (aus). */
+  setManualRender(on: boolean): void {
+    if (on) this.app.ticker.stop();
+    else this.app.ticker.start();
+  }
+
+  /** Ein Bild zeichnen (bei angehaltenem Ticker); misst die Dauer für die Qualitätsstufe. */
+  renderNow(): void {
+    const t0 = performance.now();
+    this.app.render();
+    const ms = performance.now() - t0;
+    // Gemessen wird nur die Zeichendauer der tatsächlich gerenderten Bilder (ein langsames Gerät stuft ab).
+    if (this.editMode) this.fps.sample(Math.max(ms, 1000 / 60));
   }
 
   cameraState(): { cx: number; cy: number; zoom: number } {
