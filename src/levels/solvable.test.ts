@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS } from './index';
-import { runArea, SOLVE_DT, type Solution } from './solveRunner';
+import { SOLVE_DT, type Solution } from './solveRunner';
+import { checkSolution } from './solutionCheck';
 import { Loop } from '../engine/loop';
 
 const files = import.meta.glob<Solution>('./solutions/*.json', { eager: true, import: 'default' });
@@ -18,11 +19,9 @@ describe('Lösbarkeit', () => {
         it(`Abschnitt ${area + 1} kommt an`, () => {
           const sol = solutions.get(level.id);
           expect(sol).toBeDefined();
-          const r = runArea(level, sol!, area);
-          expect(r.drawProblems).toEqual([]);
-          for (const rest of [r.remaining.ink, r.remaining.boost]) if (rest !== 'unlimited') expect(rest).toBeGreaterThanOrEqual(0);
-          const want = level.dismounts[area] ? 'arrive' : 'win';
-          expect(r.outcome?.type, JSON.stringify(r.outcome)).toBe(want);
+          const c = checkSolution(level, sol!).areas[area];
+          expect(c.reason).toBeNull();
+          expect(c.ok).toBe(true);
         });
       });
     });
