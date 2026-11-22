@@ -218,6 +218,7 @@ export class Editor {
         this.load({ level: structuredClone(f.level), solution: solutionFor(f.level.id), file: f.file, camera: null });
       },
       importFile: () => this.ui.fileInput.click(),
+      ai: () => void this.buildWithAi(),
       close: () => this.host.close(),
     });
   }
@@ -500,6 +501,40 @@ export class Editor {
     }
   }
 
+  // ------------------------------------------------------------ Mit KI bauen, Spielbarkeit
+
+  private async buildWithAi(): Promise<void> {
+    const { openAiDialog } = await import('./aiDialog');
+    openAiDialog(this.host.uiRoot, (c) => {
+      this.load({ level: c.level, solution: c.solution, file: null, camera: null });
+      this.scheduleCheck();
+      this.host.toast(c.verdict.playable ? `„${c.level.name}“ ist spielbar – probespielen!` : `Geöffnet: ${c.level.name}`, 2500);
+    });
+  }
+
+  /** Fährt alles ab (Löser + Fußwege); gefundene Pisten und nötige Tinte werden übernommen. */
+  private async verify(): Promise<void> {
+    if (this.issues.some((i) => i.level === 'error')) { this.host.toast('Erst die Fehler in der Liste beheben', 2200); return; }
+    const { checkLevel, showBusy, showCheckResult } = await import('./aiDialog');
+    const done = showBusy(this.host.uiRoot);
+    await new Promise((r) => window.setTimeout(r, 30));
+    try {
+      const before = this.doc.level;
+      const c = await checkLevel(before, this.doc.solution);
+      const solved = c.verdict.areas.some((a) => a.ok && a.auto);
+      if (c.inkRaised || solved) {
+        this.state.replace(c.level, c.solution);
+        if (c.inkRaised) new Progress(store()).rekey(before, c.level, progressKey.mine(this.uid));
+        this.syncFromState();
+      }
+      done();
+      showCheckResult(this.host.uiRoot, c, levelIssues(c.level).map((i) => i.text));
+    } catch (e) {
+      done();
+      this.host.toast(e instanceof Error ? e.message : 'Prüfung fehlgeschlagen', 3000);
+    }
+  }
+
   private save(): void {
     if (!this.uid) return;
     const r = this.lib.save({ uid: this.uid, level: this.doc.level, solution: this.doc.solution, updatedAt: Date.now(), file: this.doc.file, camera: this.doc.camera });
@@ -535,6 +570,7 @@ export class Editor {
       case 'menu': this.ui.toggleMenu(); break;
       case 'delete': void this.deleteLevel(); break;
       case 'share': void this.share(); break;
+      case 'verify': void this.verify(); break;
       case 'issues': break;
       case 'mode': {
         const mode = this.prefs.get().mode === 'pro' ? 'simple' : 'pro';

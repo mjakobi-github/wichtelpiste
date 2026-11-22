@@ -44,6 +44,11 @@ export class EditorState {
     return n;
   }
 
+  /** Level und Lösung zusammen setzen (z. B. nach „Spielbarkeit prüfen“: gefundene Pisten, mehr Tinte). */
+  replace(level: LevelData, solution: Solution | null): void {
+    this.history.push({ level, solution });
+  }
+
   undo(): boolean { return this.history.undo() !== null; }
   redo(): boolean { return this.history.redo() !== null; }
 }

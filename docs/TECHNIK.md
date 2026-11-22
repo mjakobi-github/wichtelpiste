@@ -228,6 +228,20 @@ Leser zurück (Formatinfo, Reed-Solomon-Syndrome, Daten).
   vorher 1,78 s Rechenzeit (~74 ms je Bewegung), nachher 0,80 s (~33 ms, reines
   Zeichnen); Leerlauf 5 s: vorher jedes Bild, nachher 0 Bilder.
 
+### Mit KI bauen, Spielbarkeit (`levels/verify.ts`, `editor/ai*.ts`)
+
+| Datei | Inhalt |
+|---|---|
+| `levels/autoSolve.ts` | Löser je Abschnitt: erzeugt Kandidaten-Pisten (Bézierkurven Station → Landezone mit verschiedenem Durchhang, verkürzt als Schanze, mit/ohne Speedtinte; über eine Feder; Schanze + Landepiste über ein Zeichenverbot; durch Geschenke auf der Strecke), billigste zuerst, und fährt sie mit `runArea` ab (≤ 700 Fahrten). Löst alle Menü-Levels ohne ihre Lösungsdatei im Budget. |
+| `levels/footReach.ts` | Wegsuche zu Fuß mit der echten `Simulation`: von jedem Standort ~30 Versuche (laufen, springen mit/ohne Anlauf, kurz/lang, mit/ohne Lenken), Standorte auf 24 × 12 px gerastert; Stationen führen über die Fahrt zur Landezone. Rückwärts: von wo kommt man noch zum Schornstein → welche Geschenke lassen sich einsammeln *und* abliefern. Bewegte Gefahren zählen nicht (man kann warten). |
+| `levels/verify.ts` | `verifyLevel()`: vorhandene Lösung behalten, sonst Löser, sonst Löser ohne Budget (→ „Tinte reicht nicht“ + Vorschlag 1,3 ×); dann Wegsuche. Meldungen mit Koordinaten, damit ein Chatbot sie umsetzen kann. |
+| `editor/ai.ts` | Anleitung für den Chatbot (Format, Maße, Sprungwerte aus `jumpStats`, Beispiel-Level 03), JSON aus der Antwort holen, Kleinigkeiten ergänzen, Rückmeldung als Text |
+| `editor/aiDialog.ts` | Dialog „Mit KI bauen“ und „Spielbarkeit prüfen“; Idee/Antwort in `localStorage['wichtelpiste.ai.v1']` (am Handy lädt die Seite beim App-Wechsel oft neu) |
+
+`runArea` gibt der Elfe bei Abschnitten, die zum Schornstein fahren, ein
+Platzhalter-Geschenk mit: Der Schornstein nimmt nur mit Geschenk an, das hat
+man in Wirklichkeit zu Fuß gesammelt.
+
 ### Sprungbögen (`editor/jumpReach.ts`)
 
 Werden mit der echten `Player`-Physik vorberechnet (voller Anlauf, Sprung

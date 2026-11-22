@@ -56,7 +56,7 @@ export function glyph(label: string): string {
 
 export type TopAction =
   | 'mode' | 'back' | 'undo' | 'redo' | 'grid' | 'pan' | 'sketch' | 'jumps' | 'test' | 'save' | 'export' | 'import' | 'level'
-  | 'share' | 'menu' | 'delete' | 'issues';
+  | 'share' | 'menu' | 'delete' | 'issues' | 'verify';
 
 export interface UiHandlers {
   top(a: TopAction): void;
@@ -72,7 +72,7 @@ export interface UiHandlers {
 
 export interface MyLevelCard { uid: string; name: string; stars: number; current: boolean }
 export interface StartChoice { mine: MyLevelCard[]; menuLevels: { file: string; name: string }[] | null }
-export interface StartHandlers { open(uid: string): void; fresh(): void; openMenuLevel(i: number): void; importFile(): void; close(): void }
+export interface StartHandlers { open(uid: string): void; fresh(): void; openMenuLevel(i: number): void; importFile(): void; ai(): void; close(): void }
 
 export interface TopState {
   canUndo: boolean; canRedo: boolean; grid: boolean; pan: boolean; canSave: boolean; levelOpen: boolean;
@@ -218,6 +218,7 @@ export class EditorUi {
       item('grid', 'Raster', s.grid),
       item('redo', 'Wiederholen'),
       s.pro ? item('level', 'Level-Einstellungen') : '',
+      item('verify', 'Spielbarkeit prüfen'),
       item('export', 'Als Datei exportieren'),
       item('import', 'Datei importieren'),
       s.canSave ? item('save', 'Ins Spiel speichern') : '',
@@ -351,13 +352,14 @@ export class EditorUi {
         <button class="ed-card ed-new" data-a="fresh">${icon('plus')}<span>Neues Level</span></button>
         ${cards}
       </div>
-      <div class="row ed-start-row"><button data-a="import">${icon('upload')} Datei importieren</button></div>
+      <div class="row ed-start-row"><button class="ed-ai" data-a="ai">${icon('magic')} Mit KI bauen</button><button data-a="import">${icon('upload')} Datei importieren</button></div>
       ${menu}
     </div>`;
     this.start.classList.remove('hidden');
     const on = (sel: string, f: () => void): void => this.start.querySelector(sel)?.addEventListener('click', f);
     on('[data-a="fresh"]', h.fresh);
     on('[data-a="import"]', h.importFile);
+    on('[data-a="ai"]', h.ai);
     on('[data-a="close"]', h.close);
     this.start.querySelectorAll<HTMLElement>('[data-uid]').forEach((b) => b.addEventListener('click', () => h.open(b.dataset.uid!)));
     this.start.querySelectorAll<HTMLElement>('[data-menu]').forEach((b) => b.addEventListener('click', () => h.openMenuLevel(Number(b.dataset.menu))));

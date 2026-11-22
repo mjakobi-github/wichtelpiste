@@ -100,6 +100,22 @@ gespeichert, nichts geht beim Neuladen verloren.
 5. Empfangene Levels liegen unter **Level wählen → Geschenkt**. Mit 3 Sternen
    kann man sie mit dem eigenen Rekord **zurückschicken**.
 
+### Mit KI bauen (ChatGPT, Claude, Gemini …)
+
+In **Meine Levels** auf **Mit KI bauen** tippen:
+
+1. Wunsch eintragen (z. B. „viele Federn und ein Eisdach“) und **Anleitung kopieren**.
+   Im Chatbot einfügen und abschicken.
+2. Die ganze Antwort des Chatbots ins Feld einfügen und **Prüfen**. Das Spiel
+   sucht selbst für jede Station eine Piste und hüpft alle Fußwege ab: Kommt man
+   zu jeder Station, zum Schornstein, an jedes Geschenk? Reicht die Tinte nicht,
+   erhöht es sie.
+3. Passt etwas nicht: **Rückmeldung kopieren**, im Chatbot einfügen, die neue
+   Antwort wieder einfügen und prüfen. Ist das Level spielbar: **Im Editor öffnen**.
+   Danach kann man es gleich teilen, weil die gefundenen Pisten als Lösung gelten.
+
+Im **⋯-Menü** prüft **Spielbarkeit prüfen** jedes eigene Level genauso.
+
 Im **⋯-Menü**: **Profi-Modus** (alle Bausteine wie Glocke, Krähe, Lametta,
 Zeichenverbot, Hinweise und alle Zahlenwerte, Level-Einstellungen),
 **Skizze** (schlichte Ansicht, schont Akku und Rechner), Sprungweite, Raster,

@@ -37,6 +37,7 @@ const PATHS = {
   settings: `<circle ${S} cx="12" cy="12" r="3"/><path ${S} d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>`,
   back: `<path ${S} d="M15 5l-7 7 7 7"/>`,
   copy: `<rect ${S} x="8" y="8" width="12" height="12" rx="2"/><path ${S} d="M4 16V5a1 1 0 0 1 1-1h11"/>`,
+  magic: `<path ${S} d="M4 20L15 9M13 7l4 4"/><path d="M18 2l.9 2.1L21 5l-2.1.9L18 8l-.9-2.1L15 5l2.1-.9zM8 3l.6 1.4L10 5l-1.4.6L8 7l-.6-1.4L6 5l1.4-.6zM20 13l.6 1.4 1.4.6-1.4.6L20 17l-.6-1.4L18 15l1.4-.6z" fill="currentColor"/>`,
   check: `<path ${S} d="M5 12l5 5 9-10"/>`,
   warn: `<path ${S} d="M12 3l10 18H2z"/><path ${S} d="M12 10v5M12 18v.5"/>`,
   sketch: `<rect ${S} x="3" y="13" width="8" height="7" rx="1"/><rect ${S} x="13" y="9" width="8" height="11" rx="1"/><path ${S} d="M5 9l3-4 3 4"/>`,

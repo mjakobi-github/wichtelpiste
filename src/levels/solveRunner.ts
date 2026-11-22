@@ -26,6 +26,9 @@ const IDLE = { move: 0 as const, jumpHeld: false, jumpPressed: false };
 export function runArea(level: LevelData, sol: Solution, area: number, maxT = 20): AreaRun {
   const sim = new Simulation(level);
   sim.boardForTest(area);
+  // Fährt der Abschnitt zum Schornstein, hat die Elfe zu Fuß schon Geschenke gesammelt:
+  // ein Platzhalter-Geschenk, damit der Schornstein annimmt (zählt nicht als Level-Geschenk).
+  if (!level.dismounts[area]) sim.giftTaken = [...sim.giftTaken, true];
   const drawProblems: SimEvent[] = [];
   const collect = (ev: SimEvent[]): void => { for (const e of ev) if (e.type === 'inkEmpty' || e.type === 'blocked') drawProblems.push(e); };
   for (const s of sol.areas[area]?.strokes ?? []) {
