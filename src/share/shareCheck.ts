@@ -12,5 +12,5 @@ export async function shareableCheck(level: LevelData, solution: Solution | null
   const code = await encodeShare({ level, ...meta });
   const payload = await decodeShare(code);
   const c = checkSolution(payload.level, solution);
-  return { ok: c.ok, reason: c.ok ? null : c.areas.find((a) => !a.ok)?.reason ?? null, payload, code };
+  return { ok: c.ok, reason: c.ok ? null : c.reason ?? c.areas.find((a) => !a.ok)?.reason ?? null, payload, code };
 }

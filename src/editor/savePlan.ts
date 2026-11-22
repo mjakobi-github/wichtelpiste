@@ -53,7 +53,7 @@ export function planSave(body: unknown, existingFiles: readonly string[]): SaveP
   const sol = readSolution(b.solution);
   if (!sol) return { ok: false, error: 'Lösung fehlt oder ist beschädigt – probespielen und schaffen' };
   const check = checkSolution(level, sol);
-  if (!check.ok) return { ok: false, error: check.areas.find((a) => !a.ok)?.reason ?? 'Lösung kommt nicht an' };
+  if (!check.ok) return { ok: false, error: check.reason ?? check.areas.find((a) => !a.ok)?.reason ?? 'Lösung kommt nicht an' };
 
   const levelFiles = existingFiles.filter((f) => FILE.test(f));
   let file: string;

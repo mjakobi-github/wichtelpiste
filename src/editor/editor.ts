@@ -386,7 +386,9 @@ export class Editor {
     window.clearTimeout(this.checkTimer);
     this.checkTimer = window.setTimeout(() => {
       try {
-        this.checks = checkSolution(this.doc.level, this.doc.solution);
+        // Ohne Station gibt es keine Abschnitte anzuzeigen; die Fußwegprüfung (teuer) erst beim Teilen/Speichern
+        const l = this.doc.level;
+        this.checks = l.areas.length > 0 ? checkSolution(l, this.doc.solution) : { ok: false, areas: [] };
       } catch {
         this.checks = null;
       }
@@ -414,7 +416,9 @@ export class Editor {
   private async share(): Promise<void> {
     const own = checkSolution(this.doc.level, this.doc.solution);
     if (!own.ok) {
-      // Geprüft wird jede Schlittenfahrt mit der gemerkten Linie; sagen, welche fehlt bzw. nicht ankommt
+      // Geprüft wird jede Schlittenfahrt mit der gemerkten Linie; sagen, welche fehlt bzw. nicht ankommt.
+      // Ohne Station: der Fußweg zum Schornstein.
+      if (own.reason) { this.host.toast(own.reason, 4000); return; }
       const bad = own.areas.find((a) => !a.ok)?.reason ?? 'keine Lösung';
       this.host.toast(`Erst jede Schlittenfahrt selbst schaffen (Probespielen). ${bad}`, 4000);
       return;
@@ -465,13 +469,14 @@ export class Editor {
   private async saveProject(): Promise<void> {
     const c = checkSolution(this.doc.level, this.doc.solution);
     if (!c.ok) {
-      this.host.toast(`${c.areas.find((a) => !a.ok)?.reason ?? 'Lösung fehlt'}`, 3000);
+      this.host.toast(`${c.reason ?? c.areas.find((a) => !a.ok)?.reason ?? 'Lösung fehlt'}`, 3000);
       return;
     }
     // ID geändert → als neues Level speichern (die alte Datei bleibt unberührt)
     const file = this.doc.file && idOfFile(this.doc.file) === this.doc.level.id ? this.doc.file : null;
     try { window.sessionStorage.setItem(REOPEN_KEY, '1'); } catch { /* egal */ }
-    const r = await saveToProject(this.doc.level, this.doc.solution, file);
+    // Ohne Station gibt es nichts zu fahren: leere Lösung statt keiner
+    const r = await saveToProject(this.doc.level, this.doc.solution ?? { areas: [] }, file);
     if (!r.ok) {
       try { window.sessionStorage.removeItem(REOPEN_KEY); } catch { /* egal */ }
       this.host.toast(r.error, 3500);

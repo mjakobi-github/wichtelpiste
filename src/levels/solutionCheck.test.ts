@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { LEVELS, LEVEL_FILES } from './index';
 import { checkSolution, strokeLength } from './solutionCheck';
 import type { Solution } from './solveRunner';
+import type { LevelData } from '../sim/types';
+import { validateLevel } from './schema';
+import footOnlyJson from './fixtures/nur-zu-fuss.json';
 
 const files = import.meta.glob<Solution>('./solutions/*.json', { eager: true, import: 'default' });
 const sol = (id: string): Solution => files[`./solutions/${id}.json`];
@@ -41,9 +44,21 @@ describe('checkSolution', () => {
   });
 });
 
-describe('checkSolution ohne Abschnitte', () => {
-  it('ist nie ok', () => {
-    expect(checkSolution({ ...LEVELS[0], stations: [], areas: [], dismounts: [] }, { areas: [] }).ok).toBe(false);
+describe('checkSolution ohne Abschnitte (reines Jump\'n\'Run)', () => {
+  const footOnly = (): LevelData => validateLevel(structuredClone(footOnlyJson), 'Level');
+
+  it('ok, wenn der Schornstein zu Fuß mit Geschenk erreichbar ist – auch ohne gemerkte Lösung', () => {
+    expect(checkSolution(footOnly(), null).ok).toBe(true);
+    expect(checkSolution(footOnly(), { areas: [] }).ok).toBe(true);
+  });
+
+  it('nicht ok, wenn der Schornstein zu Fuß unerreichbar ist; Grund wird genannt', () => {
+    const l = footOnly();
+    l.platforms.push({ x: 2200, y: 150, w: 200, h: 24 }); // Schornstein auf einem Balken 550 px über dem Boden
+    l.chimney = { x: 2290, y: 150 };
+    const r = checkSolution(l, null);
+    expect(r.ok).toBe(false);
+    expect(r.reason).toContain('zu Fuß');
   });
 });
 
