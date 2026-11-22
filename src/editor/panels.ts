@@ -311,8 +311,10 @@ export class EditorUi {
   /** Lösungsstand + Prüfliste (Handy: kompakter Chip, Liste aufklappbar). */
   setStatus(areas: { solved: boolean; reason: string | null }[], canSuggest: boolean, issues: Issue[]): void {
     const allOk = areas.length > 0 && areas.every((a) => a.solved);
-    const chips = areas.map((a, i) => `<span class="ed-chip ${a.solved ? 'ok' : 'open'}" title="${esc(a.reason ?? 'Lösung kommt an')}">${icon(a.solved ? 'check' : 'warn')} ${i + 1}</span>`).join('');
-    const summary = allOk ? `<span class="ed-chip ok">${icon('check')} geschafft</span>` : `<span class="ed-chip open">Noch nicht geschafft</span>`;
+    // Ohne Station (reines Jump'n'Run) gibt es keine Fahrt zu schaffen; der Fußweg wird erst beim Teilen/Speichern geprüft (teuer)
+    const foot = `<span class="ed-chip" title="Beim Teilen wird geprüft, ob ein Geschenk zu Fuß in den Schornstein kommt">zu Fuß – Prüfung beim Teilen</span>`;
+    const chips = areas.length === 0 ? foot : areas.map((a, i) => `<span class="ed-chip ${a.solved ? 'ok' : 'open'}" title="${esc(a.reason ?? 'Lösung kommt an')}">${icon(a.solved ? 'check' : 'warn')} ${i + 1}</span>`).join('');
+    const summary = areas.length === 0 ? foot : allOk ? `<span class="ed-chip ok">${icon('check')} geschafft</span>` : `<span class="ed-chip open">Noch nicht geschafft</span>`;
     this.status.innerHTML = `<span class="ed-lbl ed-desk-inline">Lösung:</span><span class="ed-desk-inline">${chips}</span><span class="ed-phone-inline">${summary}</span>`;
     if (issues.length) {
       const b = el('button', 'ed-btn small ed-issue-count ed-phone-inline', this.status);
