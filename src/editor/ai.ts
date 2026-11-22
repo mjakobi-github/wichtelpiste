@@ -33,7 +33,7 @@ Eine Elfe läuft und springt (Jump'n'Run), sammelt Geschenke und bringt sie zum 
 - "worldW", "worldH": Weltgröße
 - "spawn": {x,y} Startpunkt der Elfe (linke obere Ecke): y = Dach darunter − 60
 - "platforms": [{x,y,w,h,ice?}] Boden, Häuser, Balken. ice: true = rutschig
-- "stations": [{pos:{x,y}}] Station steht auf einem Dach: pos.y = Dach − 60, mindestens 60 px von der Dachkante entfernt (in Fahrtrichtung)
+- "stations": [{pos:{x,y}, dir?}] Station steht auf einem Dach: pos.y = Dach − 60, mindestens 60 px von der Dachkante entfernt (in Fahrtrichtung). dir = Fahrtrichtung beim Losfahren: 1 = rechts, -1 = links; weglassen = zum Ziel hin. Nur angeben, wenn der Schlitten erst vom Ziel weg muss (z. B. zu einer Sprungfeder, die ihn zurückschleudert)
 - "areas": [{ink, boost}] genau ein Eintrag je Station, gleiche Reihenfolge. ink = Tinte (z. B. 1000), boost = Speedtinte (0 oder z. B. 300; schiebt bergauf)
 - "dismounts": [{x,y,w,h}] Landezone für Station i an Stelle i. Liegt auf einem Dach: y + h = Dachhöhe, w ≈ 240, h = 150. Höchstens so viele wie Stationen; der letzten Station darf sie fehlen (fährt dann zum Schornstein)
 - "gifts": [{x,y}] Geschenke (mindestens eins), auf dem Boden: y = Dach − 25. Auch in der Luft über Lücken möglich (Schlitten sammelt mit ein)

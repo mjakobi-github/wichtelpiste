@@ -1,5 +1,6 @@
 import type { Hint, LevelData, MotionPath, Rect } from '../sim/types';
 import { LevelError, validateLevel } from '../levels/schema';
+import { hasLegacyLeft, pinLegacyDirs } from '../levels/legacyDirs';
 
 /** Was ein geteilter Link enthält (die Lösung bleibt geheim). */
 export interface SharePayload { level: LevelData; from: string; challengeInk: number | null }
@@ -37,7 +38,7 @@ function compact(p: SharePayload): Record<string, unknown> {
     n: l.name, i: l.id, W: i(l.worldW), H: i(l.worldH), s: [i(l.spawn.x), i(l.spawn.y)], c: [i(l.chimney.x), i(l.chimney.y)],
     t: [i(l.theme.seed), i(l.theme.auroraHue)], a: l.areas.map((a) => [budget(a.ink), budget(a.boost)]),
     p: l.platforms.map((x) => [...R(x), x.ice ? 1 : 0]),
-    st: l.stations.map((x) => [i(x.pos.x), i(x.pos.y)]),
+    st: l.stations.map((x) => (x.dir ? [i(x.pos.x), i(x.pos.y), x.dir] : [i(x.pos.x), i(x.pos.y)])),
     g: l.gifts.map((x) => [i(x.x), i(x.y)]),
   };
   const opt = (k: string, v: unknown[]): void => { if (v.length) o[k] = v; };
@@ -50,6 +51,8 @@ function compact(p: SharePayload): Record<string, unknown> {
   opt('sp', l.springs.map((s) => [i(s.pos.x), i(s.pos.y), Math.round(s.angle * 10) / 10, i(s.power)]));
   opt('nd', l.noDraw.map(R));
   opt('h', l.hints.map((h) => [...R(h.at), h.text, Math.max(0, HINT_ICONS.indexOf(h.icon))]));
+  // Neue Regel „ohne Richtung = zum Ziel“ markieren; alte Links ohne D starteten nach rechts (siehe legacyDirs)
+  if (hasLegacyLeft(l)) o.D = 1;
   if (p.from) o.f = p.from;
   if (p.challengeInk !== null) o.r = i(p.challengeInk);
   return o;
@@ -74,7 +77,7 @@ function expand(o: Record<string, unknown>): { raw: unknown; from: string; chall
     theme: { seed: v('t')[0], auroraHue: v('t')[1] },
     areas: arr(o.a).map((a) => ({ ink: a[0] === -1 ? 'unlimited' : a[0], boost: a[1] === -1 ? 'unlimited' : a[1] })),
     platforms: arr(o.p).map((a) => ({ ...rect(a), ice: a[4] === 1 })),
-    stations: arr(o.st).map((a) => ({ pos: { x: a[0], y: a[1] } })),
+    stations: arr(o.st).map((a) => ({ pos: { x: a[0], y: a[1] }, ...(a[2] === 1 || a[2] === -1 ? { dir: a[2] } : {}) })),
     gifts: arr(o.g).map((a) => ({ x: a[0], y: a[1] })),
     dismounts: arr(o.d).map(rect),
     checkpoints: arr(o.k).map((a) => ({ x: a[0], y: a[1] })),
@@ -141,7 +144,8 @@ export async function decodeShare(code: string): Promise<SharePayload> {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) throw new ShareError(BROKEN);
   const { raw, from, challengeInk } = expand(obj as Record<string, unknown>);
   try {
-    return { level: validateLevel(raw, 'Link'), from, challengeInk };
+    const level = validateLevel(raw, 'Link');
+    return { level: (obj as Record<string, unknown>).D === 1 ? level : pinLegacyDirs(level), from, challengeInk };
   } catch (e) {
     throw new ShareError(e instanceof LevelError ? `${BROKEN} (${e.message})` : BROKEN);
   }

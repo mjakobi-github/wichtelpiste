@@ -22,6 +22,10 @@ const HINT_ICONS = [
   { value: 'draw', label: 'Zeichnen' }, { value: 'launch', label: 'LOS' }, { value: 'chimney', label: 'Schornstein' },
 ];
 
+const STATION_DIRS = [
+  { value: 'auto', label: 'Zum Ziel' }, { value: 'right', label: 'Rechts →' }, { value: 'left', label: '← Links' },
+];
+
 function pathFields(p: MotionPath): Field[] {
   const common = [num('period', 'Dauer (s)', p.period, 0.1, 0.1), num('phase', 'Versatz (0–1)', p.phase ?? 0, 0, 0.05)];
   if (p.type === 'pendulum') {
@@ -45,7 +49,9 @@ export function fieldsFor(l: LevelData, ref: ElementRef): Field[] {
     }
     case 'station': {
       const s = e as Station;
-      return [num('number', 'Nummer', ref.index + 1, 1), num('x', 'x', s.pos.x), num('y', 'y', s.pos.y)];
+      return [num('number', 'Nummer', ref.index + 1, 1),
+        { key: 'dir', label: 'Fahrtrichtung', type: 'select', value: s.dir === 1 ? 'right' : s.dir === -1 ? 'left' : 'auto', options: STATION_DIRS },
+        num('x', 'x', s.pos.x), num('y', 'y', s.pos.y)];
     }
     case 'platform': return [...rectF(rect!), { key: 'ice', label: 'Eis', type: 'toggle', value: (e as Platform).ice === true }];
     case 'dismount': case 'noDraw': return rectF(rect!);
@@ -122,6 +128,10 @@ export function applyField(l: LevelData, ref: ElementRef, key: string, value: V)
     if (key === 'number') {
       const to = Math.round(n) - 1;
       return to >= 0 && to < l.stations.length ? renumberStation(l, ref.index, to) : l;
+    }
+    if (key === 'dir') {
+      const { dir: _old, ...rest } = e as unknown as Station;
+      return setElement(l, ref, value === 'right' ? { ...rest, dir: 1 } : value === 'left' ? { ...rest, dir: -1 } : rest);
     }
     const pos = e.pos as Vec2;
     return setElement(l, ref, { ...e, pos: { ...pos, [key]: n } });

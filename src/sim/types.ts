@@ -11,7 +11,8 @@ export type Budget = number | 'unlimited';
 /** Ein Schlitten-Abschnitt (= eine Station) mit eigenem Budget. */
 export interface Area { ink: Budget; boost: Budget }
 
-export interface Station { pos: Vec2 }
+/** dir: Fahrtrichtung des Schlittens beim LOS (1 = rechts, -1 = links); fehlt sie, zum Ziel hin. */
+export interface Station { pos: Vec2; dir?: 1 | -1 }
 
 /** Eiszapfen/Zuckerstange: harmlos, solide. x = Mitte, y = Basis (Boden), h = Höhe. */
 export interface Obstacle { x: number; y: number; h: number }

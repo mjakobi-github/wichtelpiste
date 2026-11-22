@@ -46,6 +46,15 @@ export function stationZone(s: Station): Rect {
   return { x: s.pos.x - 40, y: s.pos.y - 70, w: 90, h: 120 };
 }
 
+/** Fahrtrichtung beim LOS: wie an der Station eingestellt, sonst zum Ziel (Landezone bzw. Schornstein). */
+export function stationDir(l: LevelData, area: number): 1 | -1 {
+  const s = l.stations[area];
+  if (s.dir === 1 || s.dir === -1) return s.dir;
+  const z = l.dismounts[area];
+  const tx = z ? z.x + z.w / 2 : l.chimney.x;
+  return tx >= s.pos.x ? 1 : -1;
+}
+
 /** Lieferzone um den Schornstein (Basis-Mitte). */
 export function chimneyZone(c: Vec2): Rect {
   return { x: c.x - CHIMNEY_W / 2, y: c.y - CHIMNEY_H - 10, w: CHIMNEY_W, h: CHIMNEY_H + 50 };

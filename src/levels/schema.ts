@@ -68,7 +68,12 @@ export function validateLevel(raw: unknown, source: string): LevelData {
   const r = obj(raw, '(Wurzel)');
   if (r.version !== 1) fail('version', 'muss 1 sein');
 
-  const stations = list<Station>(r.stations, 'stations', false, (e, p) => ({ pos: vec(obj(e, p).pos, `${p}.pos`) }));
+  const stations = list<Station>(r.stations, 'stations', false, (e, p) => {
+    const o = obj(e, p);
+    if (o.dir === undefined) return { pos: vec(o.pos, `${p}.pos`) };
+    if (o.dir !== 1 && o.dir !== -1) fail(`${p}.dir`, 'muss 1 (rechts) oder -1 (links) sein');
+    return { pos: vec(o.pos, `${p}.pos`), dir: o.dir as 1 | -1 };
+  });
   const areas = list<Area>(r.areas, 'areas', false, (e, p) => {
     const o = obj(e, p);
     return { ink: budget(o.ink, `${p}.ink`), boost: budget(o.boost, `${p}.boost`) };

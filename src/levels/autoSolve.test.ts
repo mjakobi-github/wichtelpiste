@@ -3,6 +3,8 @@ import { LEVELS } from './index';
 import { autoSolve, solveArea } from './autoSolve';
 import { checkSolution } from './solutionCheck';
 import { newLevel } from '../editor/template';
+import { validateLevel } from './schema';
+import { springBackLevel } from './testFixtures';
 
 describe('autoSolve', () => {
   // Die Menü-Levels sind von Hand gelöst – der Löser muss sie mit ihrem Budget auch allein schaffen
@@ -43,5 +45,14 @@ describe('autoSolve', () => {
     const again = autoSolve(l, first);
     expect(again.solution).toEqual(first);
     expect(again.areas[0].tried).toBe(0);
+  });
+
+  it('Station fährt vom Ziel weg: Weg über die Feder, die zurückschleudert', () => {
+    const l = validateLevel(springBackLevel(1), 'rueck');
+    const s = solveArea(l, 0);
+    expect(s.strokes, s.reason ?? '').not.toBeNull();
+    const last = s.strokes![s.strokes!.length - 1].pts;
+    expect(last[last.length - 1][0]).toBeGreaterThan(1500); // Piste führt nach rechts zur Feder
+    expect(checkSolution(l, { areas: [{ strokes: s.strokes! }] }).ok).toBe(true);
   });
 });

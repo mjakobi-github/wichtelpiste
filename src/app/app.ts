@@ -17,7 +17,7 @@ import { renderTitle } from '../ui/screens/title';
 import { renderLevelSelect, type LevelTab } from '../ui/screens/levelSelect';
 import { showGiftCard } from '../ui/screens/giftCard';
 import { confirmDialog } from '../ui/dialog';
-import { Gifts, MyLevels } from './library';
+import { Gifts, migrateStationDirs, MyLevels } from './library';
 import { receiveFromHash } from './receive';
 import { playableError } from './playable';
 import { progressKey } from './progress';
@@ -85,6 +85,7 @@ export class App {
     this.progress = new Progress(store);
     this.myLevels = new MyLevels(store);
     this.gifts = new Gifts(store);
+    migrateStationDirs(store, this.progress);
   }
 
   async start(): Promise<void> {

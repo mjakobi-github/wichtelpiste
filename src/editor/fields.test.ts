@@ -6,6 +6,15 @@ import { newLevel } from './template';
 import type { Mover } from '../sim/types';
 
 describe('fieldsFor/applyField', () => {
+  it('Fahrtrichtung der Station: links/rechts setzen, „Zum Ziel“ entfernt das Feld', () => {
+    const ref = { kind: 'station', index: 0 } as const;
+    const left = applyField(newLevel(), ref, 'dir', 'left');
+    expect(left.stations[0].dir).toBe(-1);
+    expect(fieldsFor(left, ref).find((f) => f.key === 'dir')?.value).toBe('left');
+    expect(applyField(left, ref, 'dir', 'right').stations[0].dir).toBe(1);
+    expect('dir' in applyField(left, ref, 'dir', 'auto').stations[0]).toBe(false);
+  });
+
   it('Amplitude in Grad angezeigt, rad gespeichert', () => {
     const b = addElement(newLevel(), 'mover', { x: 500, y: 300 }, 'bell');
     const l = applyField(b.level, b.ref, 'amplitude', 30);

@@ -1,6 +1,8 @@
 import type { LevelData } from '../sim/types';
 import type { Solution } from '../levels/solveRunner';
 import { levelHash } from '../sim/scoring';
+import { fixDirsForSolution, pinLegacyDirs } from '../levels/legacyDirs';
+import { progressKey, type Progress } from './progress';
 
 type Store = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 export type SaveResult = { ok: true } | { ok: false; error: string };
@@ -113,4 +115,41 @@ export class Gifts {
   remove(key: string): void {
     write(this.store, GIFTS, this.list().filter((g) => g.key !== key));
   }
+}
+
+const DIRS = 'wichtelpiste.stationdirs.migrated';
+
+/**
+ * Einmalig: Seit die Station die Fahrtrichtung vorgibt, bekommen alte Abschnitte mit Ziel links,
+ * die nach rechts geschafft bzw. geprüft wurden, „nach rechts“ eingetragen. Sterne und Rekorde gehen mit.
+ */
+export function migrateStationDirs(store: Store | null, progress: Progress): void {
+  try {
+    if (!store || store.getItem(DIRS)) return;
+    const mine = read<MyLevel>(store, MY);
+    let changed = false;
+    const nextMine = mine.map((m) => {
+      if (!m?.level) return m;
+      const level = fixDirsForSolution(m.level, m.solution ?? null);
+      if (level === m.level) return m;
+      changed = true;
+      progress.rekey(m.level, level, progressKey.mine(m.uid));
+      return { ...m, level };
+    });
+    if (changed && !write(store, MY, nextMine).ok) return;
+
+    const gifts = read<Gift>(store, GIFTS);
+    changed = false;
+    const nextGifts = gifts.map((g) => {
+      if (!g?.level) return g;
+      const level = pinLegacyDirs(g.level);
+      if (level === g.level) return g;
+      changed = true;
+      const key = levelHash(level);
+      progress.move(progressKey.gift(g.key), g.level, progressKey.gift(key), level);
+      return { ...g, key, level };
+    });
+    if (changed && !write(store, GIFTS, nextGifts).ok) return;
+    store.setItem(DIRS, '1');
+  } catch { /* nächster Start versucht es wieder */ }
 }

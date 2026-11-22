@@ -1,3 +1,4 @@
+import { fixDirsForSolution } from '../levels/legacyDirs';
 import type { LevelData } from '../sim/types';
 import type { Solution } from '../levels/solveRunner';
 import { validateLevel } from '../levels/schema';
@@ -24,7 +25,9 @@ export function importFile(text: string): { level: LevelData; solution: Solution
   }
   if (raw && typeof raw === 'object' && (raw as { format?: unknown }).format === FORMAT) {
     const o = raw as { level: unknown; solution: unknown };
-    return { level: validateLevel(o.level, 'Datei'), solution: readSolution(o.solution) };
+    const solution = readSolution(o.solution);
+    // Ältere Dateien: Richtung so eintragen, dass die mitgelieferte Lösung weiter ankommt
+    return { level: fixDirsForSolution(validateLevel(o.level, 'Datei'), solution), solution };
   }
   return { level: validateLevel(raw, 'Datei'), solution: null };
 }

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { Gifts, MyLevels } from './library';
+import { Gifts, migrateStationDirs, MyLevels } from './library';
+import { validateLevel } from '../levels/schema';
+import { springBackLevel } from '../levels/testFixtures';
+import { solveArea } from '../levels/autoSolve';
+import { checkSolution } from '../levels/solutionCheck';
 import { Progress, progressKey } from './progress';
 import { newLevel } from '../editor/template';
 import { LEVELS } from '../levels';
@@ -88,5 +92,40 @@ describe('Progress.rekey', () => {
     // fremder Stand wird nicht übernommen
     p.rekey({ ...a, name: 'anders' }, { ...b, name: 'x' }, progressKey.mine('u'));
     expect(p.get({ ...b, name: 'x' }, progressKey.mine('u')).stars).toBe(0);
+  });
+});
+
+describe('migrateStationDirs (Fahrtrichtung kommt von der Station)', () => {
+  const win = { stars: 3 as const, gifts: 1, giftTotal: 1, inkUsed: 300 };
+
+  it('eigenes und empfangenes Level mit altem Rechtsstart: Richtung eingetragen, Sterne bleiben, nur einmal', () => {
+    const s = mem();
+    const old = validateLevel(springBackLevel(), 'x');
+    const strokes = solveArea(validateLevel(springBackLevel(1), 'x'), 0).strokes!;
+    const sol = { areas: [{ strokes }] };
+    const mine = new MyLevels(s).create(old, sol);
+    const menu = new MyLevels(s).create(LEVELS[0], null);
+    const gift = new Gifts(s).add(old, 'Oma', null);
+    const p = new Progress(s);
+    p.record(old, win, progressKey.mine(mine.uid));
+    p.record(old, win, progressKey.gift(gift.key));
+
+    migrateStationDirs(s, new Progress(s));
+
+    const m = new MyLevels(s).get(mine.uid)!;
+    expect(m.level.stations[0].dir).toBe(1);
+    expect(checkSolution(m.level, m.solution).ok).toBe(true);
+    expect(new MyLevels(s).get(menu.uid)!.level).toEqual(LEVELS[0]);
+    const g = new Gifts(s).list()[0];
+    expect(g.level.stations[0].dir).toBe(1);
+    expect(g.key).toBe(levelHash(g.level));
+    const after = new Progress(s);
+    expect(after.get(m.level, progressKey.mine(mine.uid)).stars).toBe(3);
+    expect(after.get(g.level, progressKey.gift(g.key)).stars).toBe(3);
+
+    // zweiter Start: nichts mehr anfassen
+    new MyLevels(s).save({ ...m, level: { ...m.level, stations: [{ pos: m.level.stations[0].pos }] } });
+    migrateStationDirs(s, new Progress(s));
+    expect(new MyLevels(s).get(mine.uid)!.level.stations[0].dir).toBeUndefined();
   });
 });

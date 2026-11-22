@@ -50,6 +50,9 @@ Anfang an freigeschaltet.
 ### Was es im Level gibt
 
 - **Stationen:** Jede Station hat ihren eigenen Tintenvorrat (Abschnitt).
+  Der Schlitten fährt immer in die Richtung der Station los (im Editor als Pfeil;
+  normalerweise zum Ziel hin). Im Editor lässt sie sich umstellen, z. B. wenn
+  eine Feder hinter der Station den Schlitten zurückschleudern soll.
 - **Landezone:** Der leuchtend grüne Rahmen beim Planen. Dort steigt die Elfe aus.
   Fährt der Schlitten daran vorbei, beginnt die Fahrt neu.
 - **Eis:** Zu Fuß rutschig. Anfahren dauert, Bremsen auch, und beim Absprung

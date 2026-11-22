@@ -42,6 +42,15 @@ export class Progress {
     try { this.storage?.setItem(this.key, JSON.stringify(this.data)); } catch { /* Best-Effort */ }
   }
 
+  /** Eintrag unter neuem Schlüssel und neuem Level-Stand weiterführen (nur, wenn er zum alten Stand gehört). */
+  move(fromKey: string, from: LevelData, toKey: string, to: LevelData): void {
+    const e = this.data[fromKey];
+    if (!e || e.hash !== levelHash(from)) return;
+    delete this.data[fromKey];
+    this.data[toKey] = { ...e, hash: levelHash(to) };
+    try { this.storage?.setItem(this.key, JSON.stringify(this.data)); } catch { /* Best-Effort */ }
+  }
+
   record(level: LevelData, r: WinResult, key = level.id): { newBestInk: boolean; improvedStars: boolean } {
     const cur = this.get(level, key);
     const improvedStars = r.stars > cur.stars;

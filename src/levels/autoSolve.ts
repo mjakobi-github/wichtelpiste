@@ -1,5 +1,5 @@
 import type { Area, LevelData, Platform, Rect, Vec2 } from '../sim/types';
-import { chimneyZone } from '../sim/elements';
+import { chimneyZone, stationDir } from '../sim/elements';
 import { segmentIntersectsRect } from '../sim/geometry';
 import { runArea, type Solution } from './solveRunner';
 import { checkSolution, strokeLength } from './solutionCheck';
@@ -95,13 +95,15 @@ interface Candidate { strokes: Strokes; ink: number; boost: number; via: boolean
 function candidates(l: LevelData, area: number, budget: Area, via: readonly Vec2[]): Candidate[] {
   const st = l.stations[area].pos;
   const zone = targetRect(l, area);
+  // dir: Richtung zum Ziel; go: Richtung, in die der Schlitten losfährt (Station kann „rückwärts“ zu einer Feder zeigen)
   const dir = zone.x + zone.w / 2 >= st.x ? 1 : -1;
+  const go = stationDir(l, area);
   const ground = groundBelow(l, st);
-  const starts: Vec2[] = [{ x: st.x - dir * 25, y: st.y + 12 }];
+  const starts: Vec2[] = [{ x: st.x - go * 25, y: st.y + 12 }];
   if (ground) {
     // Von der Dachkante aus weiterzeichnen (der Schlitten rollt erst übers Dach)
-    const edge = dir > 0 ? ground.x + ground.w : ground.x;
-    if (Math.abs(edge - st.x) < 900) starts.push({ x: edge - dir * 2, y: ground.y + 1 });
+    const edge = go > 0 ? ground.x + ground.w : ground.x;
+    if (Math.abs(edge - st.x) < 900) starts.push({ x: edge - go * 2, y: ground.y + 1 });
   }
   const tGround = groundBelow(l, { x: zone.x + zone.w / 2, y: zone.y }, zone.h + 40);
   const floorY = Math.min(zone.y + zone.h - 6, tGround ? tGround.y - 1 : zone.y + zone.h - 6);
@@ -124,8 +126,8 @@ function candidates(l: LevelData, area: number, budget: Area, via: readonly Vec2
   const ctrl = (a: Vec2, b: Vec2, sag: number): Vec2 =>
     ({ x: (a.x + b.x) / 2, y: sag >= 0 ? Math.max(a.y, b.y) + sag : (a.y + b.y) / 2 + sag });
 
-  // 1) Direkt zum Ziel
-  for (const a of starts) {
+  // 1) Direkt zum Ziel (nur, wenn der Schlitten zum Ziel hin losfährt; sonst bleibt nur der Weg über Federn)
+  for (const a of go === dir ? starts : []) {
     for (const b of ends) {
       if (dir * (b.x - a.x) < 20) continue;
       for (const sag of [0, 60, 140, 260, 420, 640, -80, -180]) {
@@ -146,15 +148,15 @@ function candidates(l: LevelData, area: number, budget: Area, via: readonly Vec2
   const tx = zone.x + zone.w / 2;
   for (const s of l.springs) {
     for (const a of starts) {
-      if (dir * (s.pos.x - a.x) < 40 || dir * (tx - s.pos.x) < -300) continue;
-      for (const b of [{ x: s.pos.x - dir * 28, y: s.pos.y - 1 }, { x: s.pos.x, y: s.pos.y - 6 }]) {
+      if (go * (s.pos.x - a.x) < 40 || (go === dir && dir * (tx - s.pos.x) < -300)) continue;
+      for (const b of [{ x: s.pos.x - go * 28, y: s.pos.y - 1 }, { x: s.pos.x, y: s.pos.y - 6 }]) {
         for (const sag of [0, 60, 140, 260, -80]) add([{ boost: false, pts: bezier(a, ctrl(a, b, sag), b) }]);
       }
     }
   }
 
   // 3) Über ein Zeichenverbot springen: Schanze davor, Landepiste dahinter
-  for (const a of starts) {
+  for (const a of go === dir ? starts : []) {
     const between = l.noDraw
       .filter((z) => (dir > 0 ? z.x > a.x && z.x < tx : z.x + z.w < a.x && z.x + z.w > tx))
       .sort((p, q) => dir * (p.x - q.x));
@@ -178,7 +180,7 @@ function candidates(l: LevelData, area: number, budget: Area, via: readonly Vec2
   }
 
   // 4) Durch ein Geschenk auf der Strecke (Kurve geht bei der Hälfte durch den Punkt)
-  for (const g of via) {
+  for (const g of go === dir ? via : []) {
     for (const a of starts) {
       for (const b of ends.slice(0, 4)) {
         if (dir * (g.x - a.x) < 30 || dir * (b.x - g.x) < 30) continue;

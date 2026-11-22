@@ -20,6 +20,10 @@ describe('Einfach/Profi', () => {
     expect(fs.map((f) => f.key)).toEqual(['ice']);
     expect(fieldsForMode('pro', fieldsFor(newLevel(), { kind: 'platform', index: 0 })).length).toBeGreaterThan(1);
   });
+
+  it('Einfach: Station zeigt nur die Fahrtrichtung', () => {
+    expect(fieldsForMode('simple', fieldsFor(newLevel(), { kind: 'station', index: 0 })).map((f) => f.key)).toEqual(['dir']);
+  });
   it('Meldungen in einfacher Sprache', () => {
     const [noGift] = levelIssues({ ...newLevel(), gifts: [] });
     expect(friendlyIssue(noGift, 'simple')).toBe('Es fehlt ein Geschenk');

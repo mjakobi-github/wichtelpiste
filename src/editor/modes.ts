@@ -11,9 +11,9 @@ export function paletteFor(mode: EditorMode): readonly PaletteEntry[] {
   return mode === 'pro' ? PALETTE : SIMPLE.map((l) => PALETTE.find((p) => p.label === l)!);
 }
 
-/** Einfach: keine Zahlen- oder Textfelder, nur Schalter (z. B. Eis). */
+/** Einfach: keine Zahlen- oder Textfelder, nur Schalter (z. B. Eis) und die Fahrtrichtung der Station. */
 export function fieldsForMode(mode: EditorMode, fields: Field[]): Field[] {
-  return mode === 'pro' ? fields : fields.filter((f) => f.type === 'toggle');
+  return mode === 'pro' ? fields : fields.filter((f) => f.type === 'toggle' || f.key === 'dir');
 }
 
 /** Fehlertexte für Kinder; Warnungen sind schon einfach. */

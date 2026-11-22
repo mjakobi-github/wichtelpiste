@@ -1,6 +1,6 @@
 import { Container, Graphics, Text } from 'pixi.js';
 import type { LevelData, Mover, Rect, Spring, Vec2 } from '../sim/types';
-import { moverPosition } from '../sim/elements';
+import { moverPosition, stationDir } from '../sim/elements';
 import { getElement, listElements, type ElementKind, type ElementRef } from './doc';
 import { elementBounds, handlesFor } from './handles';
 
@@ -83,7 +83,16 @@ export class EditorOverlay {
         g.rect(b.x, b.y, b.w, b.h).stroke({ width: px(ref.kind === 'dismount' || ref.kind === 'noDraw' ? 2 : 1.5), color, alpha });
       }
       if (warn) g.rect(b.x - px(4), b.y - px(4), b.w + px(8), b.h + px(8)).stroke({ width: px(2), color: 0xffa040 });
-      if (ref.kind === 'station') label(`Station ${ref.index + 1}`, b.x, b.y - px(22), COLOR.station);
+      if (ref.kind === 'station') {
+        // Pfeil: In diese Richtung fährt der Schlitten los
+        const d = stationDir(l, ref.index);
+        label(d > 0 ? `Station ${ref.index + 1} →` : `← Station ${ref.index + 1}`, b.x, b.y - px(22), COLOR.station);
+        const y = b.y + b.h / 2;
+        const x0 = b.x + b.w / 2;
+        const x1 = x0 + d * (b.w / 2 + px(28));
+        g.moveTo(x0, y).lineTo(x1, y).moveTo(x1 - d * px(9), y - px(7)).lineTo(x1, y).lineTo(x1 - d * px(9), y + px(7))
+          .stroke({ width: px(3), color: COLOR.station, alpha: 0.9 });
+      }
       if (ref.kind === 'dismount') label(`Landezone ${ref.index + 1}`, b.x + px(4), b.y + px(4), COLOR.dismount);
       if (ref.kind === 'spawn') label('Start', b.x, b.y - px(22), COLOR.spawn);
       if (ref.kind === 'hint') label((getElement(l, ref) as { text: string }).text, b.x + px(4), b.y + px(4), COLOR.hint);

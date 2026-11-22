@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { decodeShare, encodeShare, readShareHash, ShareError, SHARE_MAX_CODE, shareUrl } from './codec';
 import { LEVELS } from '../levels';
 import { checkSolution } from '../levels/solutionCheck';
+import { validateLevel } from '../levels/schema';
+import { springBackLevel } from '../levels/testFixtures';
 import type { Solution } from '../levels/solveRunner';
 
 const sols = import.meta.glob<Solution>('../levels/solutions/*.json', { eager: true, import: 'default' });
@@ -23,6 +25,13 @@ describe('Teilen-Codec', () => {
     }
   });
 
+  it('Fahrtrichtung der Station bleibt erhalten', async () => {
+    const l = { ...LEVELS[0], stations: [{ ...LEVELS[0].stations[0], dir: -1 as const }] };
+    const back = await decodeShare(await encodeShare({ level: l, from: '', challengeInk: null }));
+    expect(back.level.stations[0].dir).toBe(-1);
+    expect(LEVELS[0].stations[0].dir).toBeUndefined();
+  });
+
   it('ohne Rekord', async () => {
     const back = await decodeShare(await encodeShare({ level: LEVELS[1], from: '', challengeInk: null }));
     expect(back.challengeInk).toBeNull();
@@ -35,6 +44,19 @@ describe('Teilen-Codec', () => {
     await expect(decodeShare(code.slice(0, 40))).rejects.toBeInstanceOf(ShareError);
     await expect(decodeShare('')).rejects.toBeInstanceOf(ShareError);
     await expect(decodeShare('1%%%')).rejects.toBeInstanceOf(ShareError);
+  });
+
+  it('Ziel links ohne Richtung: neue Links fahren zum Ziel, alte Links (ohne Markierung) wie früher nach rechts', async () => {
+    vi.stubGlobal('CompressionStream', undefined);
+    const level = validateLevel(springBackLevel(), 'x');
+    const code = await encodeShare({ level, from: '', challengeInk: null });
+    expect((await decodeShare(code)).level.stations[0].dir).toBeUndefined();
+    // Alter Link: gleiche Daten ohne das Feld D
+    const obj = JSON.parse(atob(code.slice(1).replace(/-/g, '+').replace(/_/g, '/'))) as Record<string, unknown>;
+    expect(obj.D).toBe(1);
+    delete obj.D;
+    const old = '0' + btoa(JSON.stringify(obj)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    expect((await decodeShare(old)).level.stations[0].dir).toBe(1);
   });
 
   it('ohne CompressionStream: unkomprimiert, Rückweg geht', async () => {

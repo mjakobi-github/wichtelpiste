@@ -4,7 +4,7 @@ import { Player, PLAYER_TUNING, type FootInput } from './player';
 import { Sled } from './sled';
 import { Ink } from './ink';
 import {
-  buildStatics, chimneyZone, hitsHazard, moverPosition, springImpulse, springZone, stationZone,
+  buildStatics, chimneyZone, hitsHazard, moverPosition, springImpulse, springZone, stationDir, stationZone,
 } from './elements';
 import { clamp, dist, overlap, pointInRect } from './geometry';
 import { computeStars } from './scoring';
@@ -171,7 +171,9 @@ export class Simulation {
         this.stuckTime = 0;
         this.bestReach = 0;
         this.stallTime = 0;
-        this.sled.reset(this.level.stations[this.activeArea].pos, { x: LAUNCH_SPEED * this.player.facing, y: 0 }, this.player.facing);
+        const dir = stationDir(this.level, this.activeArea);
+        this.player.facing = dir;
+        this.sled.reset(this.level.stations[this.activeArea].pos, { x: LAUNCH_SPEED * dir, y: 0 }, dir);
         ev.push({ type: 'launch' });
         return;
       case 'retry':
@@ -256,6 +258,8 @@ export class Simulation {
     this.phase = 'plan';
     this.activeArea = area;
     this.moverClock = 0;
+    // Die Station gibt die Richtung vor: Der Schlitten steht schon so, wie er losfährt
+    this.player.facing = stationDir(this.level, area);
     this.sled.reset(this.level.stations[area].pos, { x: 0, y: 0 }, this.player.facing);
     ev.push({ type: 'board', area });
   }

@@ -15,6 +15,14 @@ describe('validateLevel', () => {
     expect(lv.theme).toEqual({ seed: 1, auroraHue: 150 });
   });
 
+  it('Fahrtrichtung der Station: 1, -1 oder weglassen', () => {
+    const raw = minimalLevel();
+    (raw.stations as { dir?: number }[])[0].dir = -1;
+    expect(validateLevel(raw, 'x.json').stations[0].dir).toBe(-1);
+    (raw.stations as { dir?: number }[])[0].dir = 2;
+    expect(() => validateLevel(raw, 'x.json')).toThrow(/stations\[0\]\.dir/);
+  });
+
   it('ohne Station wirft (Spiel braucht mindestens einen Abschnitt)', () => {
     const raw = minimalLevel();
     raw.stations = [];

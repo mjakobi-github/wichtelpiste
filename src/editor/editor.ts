@@ -412,8 +412,11 @@ export class Editor {
 
   /** Teilen: nur, wenn das Level selbst geschafft wurde (gemerkte Lösung kommt in jedem Abschnitt an). */
   private async share(): Promise<void> {
-    if (!checkSolution(this.doc.level, this.doc.solution).ok) {
-      this.host.toast('Erst einmal selbst schaffen, dann kannst du teilen!', 2500);
+    const own = checkSolution(this.doc.level, this.doc.solution);
+    if (!own.ok) {
+      // Geprüft wird jede Schlittenfahrt mit der gemerkten Linie; sagen, welche fehlt bzw. nicht ankommt
+      const bad = own.areas.find((a) => !a.ok)?.reason ?? 'keine Lösung';
+      this.host.toast(`Erst jede Schlittenfahrt selbst schaffen (Probespielen). ${bad}`, 4000);
       return;
     }
     if (this.doc.level.name === 'Neues Level' || !this.doc.level.name.trim()) {
