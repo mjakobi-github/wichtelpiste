@@ -11,13 +11,39 @@ import example from '../levels/03-zwei-daecher.json';
 
 const compact = (v: unknown): string => JSON.stringify(v);
 
-/** Anleitung, die man dem Chatbot gibt. idea = Wunsch des Kindes/der Familie (optional). */
-export function aiInstructions(idea: string): string {
+/** Präfix in der Adresse für Level, die der Chatbot als Link schickt. */
+const KI_HASH = '#ki=';
+
+/** Link, den der Chatbot bauen soll: Seite + #ki= + kompaktes, URL-kodiertes JSON. */
+export function aiLink(base: string, level: unknown): string {
+  return `${base}${KI_HASH}${encodeURIComponent(JSON.stringify(level))}`;
+}
+
+/** #ki=… aus der Adresse lesen; Chatbots kodieren nicht immer sauber, daher nachsichtig. */
+export function readAiHash(hash: string): string | null {
+  if (!hash.startsWith(KI_HASH)) return null;
+  const raw = hash.slice(KI_HASH.length);
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    // Einzelne kaputte %-Folgen: nur gültige ersetzen
+    return raw.replace(/%[0-9A-Fa-f]{2}/g, (m) => { try { return decodeURIComponent(m); } catch { return m; } });
+  }
+}
+
+/**
+ * Anleitung, die man dem Chatbot gibt. idea = Wunsch des Kindes/der Familie (optional).
+ * linkBase = Adresse des Spiels; dann soll der Chatbot zusätzlich einen Link zum Antippen schicken.
+ */
+export function aiInstructions(idea: string, linkBase?: string): string {
   const j = jumpStats(false);
   const jumpH = Math.floor(j.height / 10) * 10;
   const jumpW = Math.floor(j.distanceSameLevel / 10) * 10;
   const wish = idea.trim() || 'Denk dir selbst etwas Schönes aus, nicht zu schwer.';
-  return `Du baust ein Level für „Wichtelpiste“, ein 2D-Weihnachtsspiel im Browser. Antworte NUR mit einem einzigen JSON-Codeblock (\`\`\`json … \`\`\`), ohne Text davor oder danach.
+  const answer = linkBase
+    ? `Antworte mit genau einem JSON-Codeblock (\`\`\`json … \`\`\`) und darunter EINER Zeile mit einem Link zum Antippen, sonst nichts. Der Link ist ${linkBase}${KI_HASH} gefolgt von demselben JSON, kompakt ohne Leerzeichen und URL-kodiert wie encodeURIComponent (z. B. { → %7B, " → %22, : → %3A, , → %2C). Schreib ihn als Markdown-Link: [Level im Spiel prüfen](${linkBase}${KI_HASH}…)`
+    : 'Antworte NUR mit einem einzigen JSON-Codeblock (```json … ```), ohne Text davor oder danach.';
+  return `Du baust ein Level für „Wichtelpiste“, ein 2D-Weihnachtsspiel im Browser. ${answer}
 
 ## Das Spiel
 Eine Elfe läuft und springt (Jump'n'Run), sammelt Geschenke und bringt sie zum Schornstein. Lücken überwindet sie im Schlitten: An einer Station steigt sie automatisch ein, der Spieler zeichnet eine Piste (Linie), der Schlitten rutscht darauf mit Schwerkraft los und muss in der grünen Landezone dieses Abschnitts ankommen. Dort steigt die Elfe aus und läuft weiter. Ohne Landezone fährt der letzte Abschnitt direkt zum Schornstein.
@@ -62,7 +88,7 @@ ${compact(example)}
 ## Mein Wunsch
 ${wish}
 
-Das Spiel prüft dein Level automatisch und schickt dir eventuell eine Rückmeldung. Dann korrigiere das Level und gib es wieder vollständig als einen JSON-Codeblock aus.`;
+Das Spiel prüft dein Level automatisch und schickt dir eventuell eine Rückmeldung. Dann korrigiere das Level und gib es wieder vollständig aus, in derselben Form wie oben.`;
 }
 
 /** Holt das JSON aus einer Chatbot-Antwort (Codeblock oder erstes {…}). */
@@ -114,7 +140,7 @@ export function parseAiReply(text: string): LevelData {
 /** Rückmeldung für den Chatbot. */
 export function feedbackText(name: string, r: { error: string } | { verdict: Verdict; issues: string[] }): string {
   const head = `Rückmeldung vom Spiel Wichtelpiste zu deinem Level „${name}“:`;
-  const tail = 'Bitte korrigiere das Level und gib es wieder vollständig als einen JSON-Codeblock aus.';
+  const tail = 'Bitte korrigiere das Level und gib es wieder vollständig aus (JSON-Codeblock, und falls du ihn schon geschickt hast, wieder mit Link).';
   if ('error' in r) return `${head}\nDas Level lässt sich nicht einlesen.\n- ${r.error}\n\n${tail}`;
   const v = r.verdict;
   const lines = [head];

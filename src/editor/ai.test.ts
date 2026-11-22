@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aiInstructions, extractJson, feedbackText, parseAiReply } from './ai';
+import { aiInstructions, aiLink, extractJson, feedbackText, parseAiReply, readAiHash } from './ai';
 import { newLevel } from './template';
 import { verifyLevel } from '../levels/verify';
 
@@ -11,6 +11,24 @@ describe('Mit KI bauen', () => {
     expect(t).toContain('Viele Federn');
     expect(t).toContain('"zwei-daecher"');
     expect(t).toMatch(/bis \d{3} px hoch/);
+  });
+
+  it('mit Spieladresse: Chatbot soll zusätzlich einen #ki=-Link schicken', () => {
+    const t = aiInstructions('', 'https://example.org/wichtelpiste/');
+    expect(t).toContain('https://example.org/wichtelpiste/#ki=');
+    expect(t).toContain('encodeURIComponent');
+    expect(aiInstructions('')).not.toContain('#ki=');
+  });
+
+  it('Link aus dem Chatbot: hin und zurück, auch unsauber kodiert', () => {
+    const l = newLevel();
+    const url = aiLink('https://example.org/', l);
+    const hash = url.slice(url.indexOf('#'));
+    expect(parseAiReply(readAiHash(hash)!).name).toBe(l.name);
+    // Chatbot kodiert nur teilweise, mit einem kaputten %-Rest
+    const sloppy = '#ki=' + JSON.stringify(l).replace(/"/g, '%22') + '%';
+    expect(parseAiReply(readAiHash(sloppy)!).name).toBe(l.name);
+    expect(readAiHash('#l=abc')).toBeNull();
   });
 
   it('ohne Wunsch: Standardtext', () => {

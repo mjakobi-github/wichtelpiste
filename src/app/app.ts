@@ -202,6 +202,7 @@ export class App {
 
   /** #l=… in der Adresse: Level als Geschenk speichern, Karte zeigen, Adresse aufräumen. */
   private async checkHash(): Promise<void> {
+    if (await this.checkAiHash()) return;
     const r = await receiveFromHash(window.location.hash, this.gifts);
     if (r.kind === 'none') return;
     try { history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /* egal */ }
@@ -214,6 +215,22 @@ export class App {
       },
       later: () => { if (this.screen === 'levels') this.openLevels('toLevels', 'gift'); },
     });
+  }
+
+  /** #ki=… : Level-Link aus dem Chatbot („Mit KI bauen“) – Editor öffnen und gleich prüfen. */
+  private async checkAiHash(): Promise<boolean> {
+    if (!window.location.hash.startsWith('#ki=')) return false;
+    const { readAiHash } = await import('../editor/ai');
+    const reply = readAiHash(window.location.hash);
+    try { history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /* egal */ }
+    if (reply === null) return true;
+    if (this.testRun && this.screen !== 'editor') { this.hud.toast('Erst das Probespielen beenden, dann den Link nochmal antippen', 3500); return true; }
+    if (this.screen !== 'editor') {
+      if (this.screen !== 'title') this.openTitle();
+      await this.openEditor();
+    }
+    await this.editor?.buildWithAi(reply);
+    return true;
   }
 
   /** Level, Fortschritts-Schlüssel und HUD-Präfix zum Spielziel. */

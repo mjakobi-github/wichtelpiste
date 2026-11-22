@@ -109,12 +109,16 @@ In **Meine Levels** auf **Mit KI bauen** tippen:
 
 1. Wunsch eintragen (z. B. „viele Federn und ein Eisdach“) und **Anleitung kopieren**.
    Im Chatbot einfügen und abschicken.
-2. Die ganze Antwort des Chatbots ins Feld einfügen und **Prüfen**. Das Spiel
+2. Der Chatbot schickt das Level und einen **Link**: antippen, das Spiel öffnet
+   sich und prüft sofort. Sonst die Antwort im Chatbot kopieren und
+   **Einfügen und prüfen** tippen (oder selbst ins Feld einfügen; die alte
+   Antwort wird dabei ersetzt, **Leeren** löscht sie). Das Spiel
    sucht selbst für jede Station eine Piste und hüpft alle Fußwege ab: Kommt man
    zu jeder Station, zum Schornstein, an jedes Geschenk? Reicht die Tinte nicht,
    erhöht es sie.
-3. Passt etwas nicht: **Rückmeldung kopieren**, im Chatbot einfügen, die neue
-   Antwort wieder einfügen und prüfen. Ist das Level spielbar: **Im Editor öffnen**.
+3. Passt etwas nicht, ist die Rückmeldung meist schon kopiert (sonst
+   **Rückmeldung kopieren**): im Chatbot einfügen, die neue Antwort wieder
+   einfügen bzw. den neuen Link antippen. Ist das Level spielbar: **Im Editor öffnen**.
    Danach kann man es gleich teilen, weil die gefundenen Pisten als Lösung gelten.
 
 Im **⋯-Menü** prüft **Spielbarkeit prüfen** jedes eigene Level genauso.

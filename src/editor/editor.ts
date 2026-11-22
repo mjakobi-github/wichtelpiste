@@ -506,13 +506,14 @@ export class Editor {
 
   // ------------------------------------------------------------ Mit KI bauen, Spielbarkeit
 
-  private async buildWithAi(): Promise<void> {
+  /** reply: Antwort aus einem Chatbot-Link (#ki=…), wird gleich geprüft. */
+  async buildWithAi(reply?: string): Promise<void> {
     const { openAiDialog } = await import('./aiDialog');
     openAiDialog(this.host.uiRoot, (c) => {
       this.load({ level: c.level, solution: c.solution, file: null, camera: null });
       this.scheduleCheck();
       this.host.toast(c.verdict.playable ? `„${c.level.name}“ ist spielbar – probespielen!` : `Geöffnet: ${c.level.name}`, 2500);
-    });
+    }, { reply });
   }
 
   /** Fährt alles ab (Löser + Fußwege); gefundene Pisten und nötige Tinte werden übernommen. */
