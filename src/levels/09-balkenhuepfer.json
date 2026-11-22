@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "id": "balkenhuepfer",
+  "name": "Balkenhüpfer",
+  "worldW": 4900,
+  "worldH": 1100,
+  "spawn": { "x": 80, "y": 740 },
+  "platforms": [
+    { "x": 0, "y": 800, "w": 500, "h": 300 },
+    { "x": 640, "y": 740, "w": 120, "h": 24 },
+    { "x": 880, "y": 660, "w": 120, "h": 24 },
+    { "x": 1140, "y": 600, "w": 140, "h": 24 },
+    { "x": 1400, "y": 520, "w": 120, "h": 24 },
+    { "x": 1640, "y": 700, "w": 320, "h": 400 },
+    { "x": 1980, "y": 400, "w": 260, "h": 24 },
+    { "x": 2900, "y": 760, "w": 420, "h": 340 },
+    { "x": 3440, "y": 700, "w": 140, "h": 24, "ice": true },
+    { "x": 3700, "y": 640, "w": 140, "h": 24, "ice": true },
+    { "x": 3960, "y": 560, "w": 200, "h": 24 },
+    { "x": 4500, "y": 820, "w": 400, "h": 280 }
+  ],
+  "stations": [
+    { "pos": { "x": 2160, "y": 340 } },
+    { "pos": { "x": 4080, "y": 500 } }
+  ],
+  "dismounts": [
+    { "x": 2900, "y": 610, "w": 260, "h": 150 }
+  ],
+  "gifts": [
+    { "x": 300, "y": 775 },
+    { "x": 700, "y": 715 },
+    { "x": 1460, "y": 495 },
+    { "x": 2640, "y": 655 },
+    { "x": 3510, "y": 675 },
+    { "x": 4400, "y": 765 }
+  ],
+  "checkpoints": [
+    { "x": 1760, "y": 700 }
+  ],
+  "icicles": [],
+  "candies": [],
+  "hazards": [
+    { "kind": "tinsel", "rect": { "x": 520, "y": 1070, "w": 1100, "h": 20 } }
+  ],
+  "movers": [
+    {
+      "kind": "crow",
+      "radius": 18,
+      "path": { "type": "line", "from": { "x": 1070, "y": 360 }, "to": { "x": 1070, "y": 620 }, "period": 2.2 }
+    }
+  ],
+  "springs": [
+    { "pos": { "x": 1900, "y": 700 }, "angle": 0, "power": 1400 }
+  ],
+  "noDraw": [],
+  "chimney": { "x": 4760, "y": 820 },
+  "areas": [
+    { "ink": 1000, "boost": 0 },
+    { "ink": 800, "boost": 0 }
+  ],
+  "theme": { "seed": 113, "auroraHue": 160 },
+  "hints": [
+    { "at": { "x": 1780, "y": 400, "w": 180, "h": 300 }, "text": "Die Feder bringt dich hoch hinaus", "icon": "jump" },
+    { "at": { "x": 1980, "y": 200, "w": 260, "h": 200 }, "text": "Der Schlitten startet hoch oben auf dem Balken", "icon": "station" }
+  ]
+}
