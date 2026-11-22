@@ -26,6 +26,7 @@ import { renderWin } from '../ui/screens/win';
 import { Progress } from './progress';
 import { canPause, nextScreen, type Screen, type ScreenAction } from './flow';
 import { fullscreenSupported, toggleFullscreen } from '../ui/fullscreen';
+import { claimReload } from './staleChunk';
 import type { LevelData } from '../sim/types';
 import type { Recorder, Recording } from '../editor/recorder';
 import type { Editor, EditorHost } from '../editor/editor';
@@ -77,6 +78,10 @@ export class App {
   private overlay!: HTMLElement;
   private hints!: HintView;
   private editor: Editor | null = null;
+  private editorModule: Promise<typeof import('../editor/editor')> | null = null;
+  /** Editor-Code wird gerade geladen (gegen doppeltes Antippen). */
+  private openingEditor = false;
+  private reloading = false;
   private testRun: TestRun | null = null;
 
   constructor(private readonly stageHost: HTMLElement, private readonly uiRoot: HTMLElement) {
@@ -121,6 +126,7 @@ export class App {
     if (editorAllowed() && consumeReopen()) void this.openEditor(true);
     void this.checkHash();
     window.addEventListener('hashchange', () => void this.checkHash());
+    window.addEventListener('vite:preloadError', () => this.onChunkError());
     if (new URLSearchParams(window.location.search).has('debug')) {
       // Lösungen für src/levels/solutions/<id>.json: in der Konsole copy(__exportStrokes())
       (window as unknown as { __exportStrokes: () => string }).__exportStrokes = () => this.exportStrokes();
@@ -156,6 +162,7 @@ export class App {
     this.screen = 'title';
     this.toMenu();
     this.showOverlay((el) => renderTitle(el, () => this.openLevels('start'), () => void this.openEditor()));
+    this.prefetchEditor();
   }
 
   private openLevels(a: ScreenAction, tab: LevelTab = this.levelTab): void {
@@ -243,9 +250,61 @@ export class App {
 
   // ------------------------------------------------------------ Editor
 
+  /** Editor-Code nur einmal anfordern; schlägt es fehl, beim nächsten Versuch neu. */
+  private loadEditor(): Promise<typeof import('../editor/editor')> {
+    this.editorModule ??= import('../editor/editor').catch((err: unknown) => {
+      this.editorModule = null;
+      throw err;
+    });
+    return this.editorModule;
+  }
+
+  /** Editor-Code im Hintergrund vorladen, damit „Bauen“ gleich reagiert (Fehler meldet staleChunk). */
+  private prefetchEditor(): void {
+    if (this.editor || this.editorModule) return;
+    window.setTimeout(() => { if (!this.editor) void this.loadEditor().catch(() => undefined); }, 1500);
+  }
+
+  /** „Bauen“-Knopf zeigt, dass geladen wird. */
+  private setEditorBusy(busy: boolean): void {
+    const b = this.overlay.querySelector<HTMLButtonElement>('button[data-a="editor"]');
+    if (b) b.setAttribute('aria-busy', String(busy));
+  }
+
+  /** Nachgeladener Programmteil fehlt (meist: neue Version veröffentlicht, alte Seite noch offen). */
+  private onChunkError(): void {
+    if (this.reloading) return;
+    const inMenu = this.screen === 'title' || this.screen === 'levels';
+    let store: Storage | null = null;
+    try { store = window.sessionStorage; } catch { store = null; }
+    if (inMenu && claimReload(store, Date.now())) {
+      this.reloading = true;
+      this.hud.toast('Neue Version – lädt neu …', 3000);
+      window.location.reload();
+      return;
+    }
+    this.hud.toast('Neue Version da – bitte die Seite neu laden', 4000);
+  }
+
   private async openEditor(resume = false): Promise<void> {
+    if (this.openingEditor) return;
     if (!this.editor) {
-      const { Editor } = await import('../editor/editor');
+      this.openingEditor = true;
+      this.setEditorBusy(true);
+      let mod: typeof import('../editor/editor');
+      try {
+        mod = await this.loadEditor();
+      } catch {
+        // Meist schon über vite:preloadError gemeldet – doppelt schadet nicht (reloading sperrt)
+        this.onChunkError();
+        return;
+      } finally {
+        this.openingEditor = false;
+        this.setEditorBusy(false);
+      }
+      // Inzwischen „Spielen“ getippt? Dann nicht dazwischenfunken.
+      if (this.screen !== 'title') return;
+      const { Editor } = mod;
       const host: EditorHost = {
         view: this.view,
         uiRoot: this.uiRoot,

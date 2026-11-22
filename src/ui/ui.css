@@ -163,6 +163,9 @@ button.title-editor {
   background: var(--glass-strong); border: 1.5px solid rgba(255, 210, 122, 0.55); color: var(--accent);
 }
 button.title-editor .icon { width: 1em; height: 1em; }
+/* Editor-Code lädt noch nach: sichtbar „tut sich was“ */
+button.title-editor[aria-busy="true"] { animation: busy 700ms ease-in-out infinite alternate; }
+@keyframes busy { to { opacity: 0.5; } }
 
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 .card {
