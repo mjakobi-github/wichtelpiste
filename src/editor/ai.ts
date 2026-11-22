@@ -31,9 +31,25 @@ export function readAiHash(hash: string): string | null {
   }
 }
 
+/** Veröffentlichte Bauanleitung (GitHub Pages) – für Spiele, die lokal oder als Einzeldatei laufen. */
+export const GUIDE_URL = 'https://mjakobi-github.github.io/wichtelpiste/ki-bauanleitung.md';
+
+/** Adresse der ausführlichen Bauanleitung (public/ki-bauanleitung.md) neben dem laufenden Spiel. */
+export function guideUrl(linkBase?: string): string {
+  if (!linkBase) return GUIDE_URL;
+  try {
+    const u = new URL('ki-bauanleitung.md', linkBase);
+    const local = /^(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(u.hostname) || u.hostname.endsWith('.local');
+    return (u.protocol === 'https:' || u.protocol === 'http:') && !local ? u.href : GUIDE_URL;
+  } catch {
+    return GUIDE_URL;
+  }
+}
+
 /**
  * Anleitung, die man dem Chatbot gibt. idea = Wunsch des Kindes/der Familie (optional).
  * linkBase = Adresse des Spiels; dann soll der Chatbot zusätzlich einen Link zum Antippen schicken.
+ * Die ausführliche Fassung mit Bausteinen und Beispielen liegt in public/ki-bauanleitung.md.
  */
 export function aiInstructions(idea: string, linkBase?: string): string {
   const j = jumpStats(false);
@@ -45,40 +61,48 @@ export function aiInstructions(idea: string, linkBase?: string): string {
     : 'Antworte NUR mit einem einzigen JSON-Codeblock (```json … ```), ohne Text davor oder danach.';
   return `Du baust ein Level für „Wichtelpiste“, ein 2D-Weihnachtsspiel im Browser. ${answer}
 
+Ausführliche Bauanleitung mit Bausteinen, Tipps für gutes Leveldesign und geprüften Beispielen: ${guideUrl(linkBase)}
+Wenn du Webseiten lesen kannst, lies sie zuerst. Das Wichtigste steht auch hier.
+
 ## Das Spiel
 Eine Elfe läuft und springt (Jump'n'Run), sammelt Geschenke und bringt sie zum Schornstein. Lücken überwindet sie im Schlitten: An einer Station steigt sie automatisch ein, der Spieler zeichnet eine Piste (Linie), der Schlitten rutscht darauf mit Schwerkraft los und muss in der grünen Landezone dieses Abschnitts ankommen. Dort steigt die Elfe aus und läuft weiter. Ohne Landezone fährt der letzte Abschnitt direkt zum Schornstein.
 
+## Arten von Leveln
+- Reines Jump'n'Run: nur laufen und springen. "stations": [], "areas": [], "dismounts": []
+- Reine Schlittenfahrt: kurzes Stück zu Fuß zur Station, dann eine lange Fahrt direkt zum Schornstein. 1 Station, "dismounts": []
+- Gemischt (Standard, wenn der Wunsch nichts sagt): abwechselnd laufen und fahren, 1–3 Stationen
+
 ## Koordinaten und Maße
-- Weltpixel, x nach rechts, y nach UNTEN (kleineres y = höher). Welt typisch 2400–5000 breit, 700–1300 hoch.
-- Plattform {x,y,w,h}: x,y = linke obere Ecke, y = Dachhöhe. Ab h ≥ 50 wird sie als Haus gezeichnet, darunter als schmaler Balken (h 24).
-- Elfe: 30 breit, 38 hoch. Sprung (voller Anlauf, gehalten): bis ${jumpH} px hoch, auf gleicher Höhe ${jumpW} px weit. Plane mit Reserve: Lücken zu Fuß höchstens 160 px, Stufen nach oben höchstens 130 px.
-- Schlitten: rutscht nur bergab oder mit Schwung, kommt ohne Speedtinte nicht höher als die Station. Die Landezone sollte deshalb tiefer liegen als die Station (100–300 px) und 400–1100 px entfernt sein. Tinte = Länge der Linie in px.
+- Weltpixel, x nach rechts, y nach UNTEN (kleineres y = höher). Welt typisch 2400–5000 breit, 700–1300 hoch. Wer unten aus der Welt fällt, verliert einen Versuch.
+- Plattform {x,y,w,h}: x,y = linke obere Ecke, y = Dachhöhe. Ab h ≥ 50 wird sie als Haus gezeichnet, darunter als schmaler Balken (h 24). Alles Feste ist von allen Seiten fest (Kopf stößt an Balken).
+- Elfe: 30 breit, 38 hoch. Sprung (voller Anlauf, gehalten): bis ${jumpH} px hoch, auf gleicher Höhe ${jumpW} px weit. Plane mit Reserve: Lücken zu Fuß höchstens 160 px, Stufen nach oben höchstens 130 px. Herunterfallen ist beliebig tief erlaubt.
+- Schlitten: keine Steuerung, nur die gezeichnete Piste. Kommt ohne Speedtinte nicht höher als die Station. Die Landezone sollte deshalb tiefer liegen als die Station (100–300 px) und 400–1100 px entfernt sein. Er prallt an Plattformen, Eiszapfen und Zuckerstangen ab. Eine Fahrt startet neu an der Station, wenn er eine Gefahr berührt, aus der Welt fällt, stecken bleibt oder über 150 px über die Landezone hinausfährt. Tinte = Länge der Linie in px.
 
 ## Felder (alle Pflicht, Listen dürfen leer sein)
 - "version": 1, "id": kurzer-name-mit-bindestrichen, "name": Anzeigename (max. 30 Zeichen)
 - "worldW", "worldH": Weltgröße
 - "spawn": {x,y} Startpunkt der Elfe (linke obere Ecke): y = Dach darunter − 60
-- "platforms": [{x,y,w,h,ice?}] Boden, Häuser, Balken. ice: true = rutschig
+- "platforms": [{x,y,w,h,ice?}] Boden, Häuser, Balken. ice: true = rutschig zu Fuß (träge, rutscht nach; für den Schlitten ohne Wirkung)
 - "stations": [{pos:{x,y}, dir?}] Station steht auf einem Dach: pos.y = Dach − 60, mindestens 60 px von der Dachkante entfernt (in Fahrtrichtung). dir = Fahrtrichtung beim Losfahren: 1 = rechts, -1 = links; weglassen = zum Ziel hin. Nur angeben, wenn der Schlitten erst vom Ziel weg muss (z. B. zu einer Sprungfeder, die ihn zurückschleudert)
-- "areas": [{ink, boost}] genau ein Eintrag je Station, gleiche Reihenfolge. ink = Tinte (z. B. 1000), boost = Speedtinte (0 oder z. B. 300; schiebt bergauf)
+- "areas": [{ink, boost}] genau ein Eintrag je Station, gleiche Reihenfolge. ink = Tinte (etwa 1,5 × Entfernung Station → Ziel), boost = Speedtinte (0 oder z. B. 300; schiebt in Zeichenrichtung, auch bergauf). Zahl oder "unlimited"
 - "dismounts": [{x,y,w,h}] Landezone für Station i an Stelle i. Liegt auf einem Dach: y + h = Dachhöhe, w ≈ 240, h = 150. Höchstens so viele wie Stationen; der letzten Station darf sie fehlen (fährt dann zum Schornstein)
-- "gifts": [{x,y}] Geschenke (mindestens eins), auf dem Boden: y = Dach − 25. Auch in der Luft über Lücken möglich (Schlitten sammelt mit ein)
-- "chimney": {x,y} Schornstein, y = Dachhöhe (steht auf einem Dach)
-- "checkpoints": [{x,y}] Laternen (Neustartpunkt), y = Dachhöhe
-- "springs": [{pos:{x,y}, angle, power}] Sprungfeder, pos.y = Dachhöhe, angle in Grad (0 = senkrecht, 30 = schräg nach rechts), power 1200–1500
-- "icicles", "candies": [{x,y,h}] harmlose feste Hindernisse (x = Mitte, y = Dachhöhe, h = 40–80)
-- "hazards": [{kind:"icicle-hanging"|"tinsel", rect:{x,y,w,h}}] tödlich. tinsel z. B. als Boden einer Grube
-- "movers": [{kind:"bell"|"crow", radius:18, path}] tödlich und bewegt; path: {type:"pendulum", pivot:{x,y}, length, amplitude (rad, z. B. 0.9), period (s)} oder {type:"line", from:{x,y}, to:{x,y}, period} oder {type:"circle", center:{x,y}, radius, period}
-- "noDraw": [{x,y,w,h}] Zeichenverbot (dort keine Piste; der Schlitten muss drüberspringen)
+- "gifts": [{x,y}] Geschenke (mindestens eins), auf dem Boden: y = Dach − 25. Auch in der Luft möglich (Schlitten sammelt beim Durchfahren mit ein)
+- "chimney": {x,y} Schornstein, y = Dachhöhe (steht auf einem Dach). Nimmt erst ab einem Geschenk an; drei Sterne nur mit allen Geschenken
+- "checkpoints": [{x,y}] Laternen (Neustartpunkt zu Fuß), y = Dachhöhe. In Wegreihenfolge auflisten: nach einer späteren Laterne zählen frühere nicht mehr
+- "springs": [{pos:{x,y}, angle, power}] Sprungfeder für Elfe UND Schlitten, pos.y = Dachhöhe, angle in Grad (0 = senkrecht, positiv = nach rechts, negativ = nach links), power 1200–1500. Hebt die Elfe ca. 345 px (power 1500: 400 px). Darüber Platz lassen
+- "icicles", "candies": [{x,y,h}] harmlose, aber feste Hindernisse für Elfe UND Schlitten (x = Mitte, y = Dachhöhe, h = 40–80; Zuckerstange ragt 24 px höher). Nicht auf die Schlittenstrecke stellen
+- "hazards": [{kind:"icicle-hanging"|"tinsel", rect:{x,y,w,h}}] tödlich für Elfe UND Schlitten. tinsel z. B. als Boden einer Grube, icicle-hanging unter einer Decke
+- "movers": [{kind:"bell"|"crow", radius:18, path}] tödlich für Elfe UND Schlitten, bewegt; path: {type:"pendulum", pivot:{x,y}, length, amplitude (rad, z. B. 0.9), period (s)} (hängt unter pivot) oder {type:"line", from:{x,y}, to:{x,y}, period} (hin und zurück) oder {type:"circle", center:{x,y}, radius, period}; optional phase 0–1 zum Versetzen. Sie laufen beim LOS weiter: Der Spieler passt den Moment ab
+- "noDraw": [{x,y,w,h}] Zeichenverbot (dort keine Piste; der Schlitten fährt durch, braucht davor aber Schwung, um drüberzufliegen)
 - "theme": {seed: Zahl, auroraHue: 0–360} Landschaft und Farbe des Polarlichts
 - "hints": [{at:{x,y,w,h}, text, icon:"move"|"jump"|"station"|"draw"|"launch"|"chimney"}] kurze Hinweise, solange die Elfe in "at" ist (optional)
 
 ## Regeln für ein gutes Level
 - Weg: Start → zu Fuß zur Station 1 → Schlitten → Landezone 1 → zu Fuß weiter → … → Schornstein.
-- Alles zu Fuß Nötige muss mit Sprüngen erreichbar sein; nichts liegt in der Luft, wo man nicht hinkommt.
+- Alles zu Fuß Nötige muss mit Sprüngen oder Federn erreichbar sein; nichts liegt in der Luft, wo man nicht hinkommt.
 - Zwischen Station und Landezone eine Lücke, die man zu Fuß NICHT schafft (sonst braucht man keinen Schlitten).
-- Gefahren nicht direkt auf den einzigen Weg legen, ohne dass man drüber kann.
-- Tinte großzügig: etwa 1,5 × die Entfernung Station → Landezone.
+- Gefahren nicht direkt auf den einzigen Weg legen, ohne dass man drüber kann. Laterne vor schweren Stellen.
+- Eine Idee pro Abschnitt, Schwierigkeit steigt zum Ende hin, 3–6 Geschenke (eins davon schwer erreichbar).
 
 ## Beispiel (2 Stationen)
 \`\`\`json
@@ -128,7 +152,7 @@ export function parseAiReply(text: string): LevelData {
   o.name = String(o.name).slice(0, 30);
   if (typeof o.id !== 'string' || !o.id.trim()) o.id = slug(String(o.name));
   o.theme ??= { seed: Math.floor(Math.random() * 1000), auroraHue: 150 };
-  for (const k of ['dismounts', 'checkpoints', 'icicles', 'candies', 'hazards', 'movers', 'springs', 'noDraw', 'hints']) o[k] ??= [];
+  for (const k of ['stations', 'areas', 'dismounts', 'checkpoints', 'icicles', 'candies', 'hazards', 'movers', 'springs', 'noDraw', 'hints']) o[k] ??= [];
   try {
     return validateLevel(o, 'Level');
   } catch (e) {

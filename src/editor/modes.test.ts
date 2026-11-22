@@ -28,8 +28,8 @@ describe('Einfach/Profi', () => {
     const [noGift] = levelIssues({ ...newLevel(), gifts: [] });
     expect(friendlyIssue(noGift, 'simple')).toBe('Es fehlt ein Geschenk');
     expect(friendlyIssue(noGift, 'pro')).toBe(noGift.text);
-    const [noStation] = levelIssues({ ...newLevel(), stations: [], areas: [], dismounts: [] });
-    expect(friendlyIssue(noStation, 'simple')).toBe('Es fehlt eine Station');
+    // Ohne Station ist erlaubt (reines Jump'n'Run)
+    expect(levelIssues({ ...newLevel(), stations: [], areas: [], dismounts: [] }).filter((i) => i.level === 'error')).toEqual([]);
     expect(friendlyIssue({ level: 'error', text: 'platforms[0].w muss > 0 sein', ref: null }, 'simple')).toMatch(/Profi/);
     expect(friendlyIssue({ level: 'warning', text: 'Unter dem Startpunkt ist kein Boden', ref: null }, 'simple')).toBe('Unter dem Startpunkt ist kein Boden');
   });

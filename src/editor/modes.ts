@@ -21,7 +21,6 @@ export function friendlyIssue(issue: Issue, mode: EditorMode): string {
   if (mode === 'pro' || issue.level === 'warning') return issue.text;
   const t = issue.text;
   if (t.startsWith('gifts')) return 'Es fehlt ein Geschenk';
-  if (t.startsWith('stations')) return 'Es fehlt eine Station';
   if (t.startsWith('dismounts')) return 'Zu viele Landezonen – jede Station hat höchstens eine';
   return 'Da stimmt etwas nicht – frag einen Erwachsenen oder schalte Profi ein';
 }

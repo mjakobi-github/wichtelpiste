@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aiInstructions, aiLink, extractJson, feedbackText, parseAiReply, readAiHash } from './ai';
+import { GUIDE_URL, aiInstructions, aiLink, extractJson, feedbackText, parseAiReply, readAiHash } from './ai';
 import { newLevel } from './template';
 import { verifyLevel } from '../levels/verify';
 
@@ -29,6 +29,32 @@ describe('Mit KI bauen', () => {
     const sloppy = '#ki=' + JSON.stringify(l).replace(/"/g, '%22') + '%';
     expect(parseAiReply(readAiHash(sloppy)!).name).toBe(l.name);
     expect(readAiHash('#l=abc')).toBeNull();
+  });
+
+  it('verweist auf die ausführliche Bauanleitung neben dem Spiel', () => {
+    expect(aiInstructions('', 'https://example.org/wichtelpiste/')).toContain('https://example.org/wichtelpiste/ki-bauanleitung.md');
+    expect(aiInstructions('', 'https://example.org/spiel/index.html')).toContain('https://example.org/spiel/ki-bauanleitung.md');
+    // Lokal (Entwicklung, Einzeldatei) kann der Chatbot nichts abrufen: veröffentlichte Fassung
+    expect(aiInstructions('', 'http://localhost:5173/')).toContain(`${GUIDE_URL}`);
+    expect(aiInstructions('', 'file:///home/x/wichtelpiste.html')).toContain(`${GUIDE_URL}`);
+    expect(aiInstructions('')).toContain(`${GUIDE_URL}`);
+  });
+
+  it('kennt reine Jump\'n\'Run- und reine Schlitten-Level und das Verhalten der Elemente', () => {
+    const t = aiInstructions('');
+    expect(t).toContain("Reines Jump'n'Run");
+    expect(t).toContain('Reine Schlittenfahrt');
+    expect(t).toMatch(/Elfe UND Schlitten/);
+  });
+
+  it('reines Jump\'n\'Run: fehlende stations/areas werden leere Listen', () => {
+    const l = newLevel() as unknown as Record<string, unknown>;
+    delete l.stations;
+    delete l.areas;
+    l.dismounts = [];
+    const out = parseAiReply(reply(l));
+    expect(out.stations).toEqual([]);
+    expect(out.areas).toEqual([]);
   });
 
   it('ohne Wunsch: Standardtext', () => {

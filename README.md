@@ -121,6 +121,15 @@ In **Meine Levels** auf **Mit KI bauen** tippen:
    einfügen bzw. den neuen Link antippen. Ist das Level spielbar: **Im Editor öffnen**.
    Danach kann man es gleich teilen, weil die gefundenen Pisten als Lösung gelten.
 
+Die kopierte Anleitung verweist auf eine ausführliche **Bauanleitung für Chatbots**
+([`public/ki-bauanleitung.md`](public/ki-bauanleitung.md), im Spiel unter
+`…/ki-bauanleitung.md`): alle Bausteine und was sie zu Fuß und im Schlitten
+bewirken, Maße aus der echten Physik, Tipps für gutes Leveldesign, Bausteine und
+drei geprüfte Beispiele. Chatbots, die Webseiten lesen können, holen sie sich
+selbst. Man kann sie auch direkt verlinken („Lies … und bau mir ein Level“).
+Erlaubt sind auch **reine Jump'n'Run-Level** (ohne Station) und **reine
+Schlittenfahrten** (kurzer Weg zur Station, dann direkt zum Schornstein).
+
 Im **⋯-Menü** prüft **Spielbarkeit prüfen** jedes eigene Level genauso.
 
 Im **⋯-Menü**: **Profi-Modus** (alle Bausteine wie Glocke, Krähe, Lametta,

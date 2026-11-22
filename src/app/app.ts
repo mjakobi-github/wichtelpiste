@@ -495,12 +495,12 @@ export class App {
     this.events = [];
     if (this.screen !== 'play') return;
     const planning = sim.mode === 'sled' && sim.phase === 'plan';
-    this.toolbar.setPlanning(planning, sim.level.areas[sim.activeArea].boost !== 0);
+    this.toolbar.setPlanning(planning, (sim.level.areas[sim.activeArea]?.boost ?? 0) !== 0);
     this.touch.show(sim.mode === 'foot');
     this.toolbar.setReplan(sim.canReplan);
     this.hud.update(sim, this.testRun ? 'Probe:' : this.hudPrefix);
     const foot = sim.mode === 'foot';
-    const at = foot ? sim.player.center : sim.level.stations[sim.activeArea].pos;
+    const at = foot || !sim.level.stations[sim.activeArea] ? sim.player.center : sim.level.stations[sim.activeArea].pos;
     const strokes = sim.ink.strokes.filter((s) => s.area === sim.activeArea).length;
     this.hints.show(activeHint(sim.level.hints, at, sim.mode, sim.phase, strokes));
   }

@@ -147,6 +147,14 @@ describe('Simulation', () => {
     expect(sim.won).toBe(true);
   });
 
+  it('reines Jump\'n\'Run ohne Station: zu Fuß zum Schornstein, Sieg', () => {
+    const sim = new Simulation(level({ stations: [], areas: [], chimney: { x: 600, y: 500 } }));
+    const ev = runUntil(sim, 5, RIGHT, (e) => e.type === 'win');
+    expect(ev.some((e) => e.type === 'gift')).toBe(true);
+    expect(ev.some((e) => e.type === 'board')).toBe(false);
+    expect(ev.some((e) => e.type === 'win')).toBe(true);
+  });
+
   it('Schornstein ohne Geschenk: Ablehnung, kein Sieg', () => {
     const sim = new Simulation(level({ gifts: [{ x: 1500, y: 300 }], chimney: { x: 160, y: 500 } }));
     const ev = runUntil(sim, 1, RIGHT);

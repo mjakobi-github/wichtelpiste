@@ -23,11 +23,21 @@ describe('validateLevel', () => {
     expect(() => validateLevel(raw, 'x.json')).toThrow(/stations\[0\]\.dir/);
   });
 
-  it('ohne Station wirft (Spiel braucht mindestens einen Abschnitt)', () => {
+  it('ohne Station: reines Jump\'n\'Run ist erlaubt', () => {
     const raw = minimalLevel();
     raw.stations = [];
     raw.areas = [];
-    expect(() => validateLevel(raw, 'x.json')).toThrow(/stations/);
+    const lv = validateLevel(raw, 'x.json');
+    expect(lv.stations).toEqual([]);
+    expect(lv.areas).toEqual([]);
+  });
+
+  it('ohne Station, aber mit Landezone wirft', () => {
+    const raw = minimalLevel();
+    raw.stations = [];
+    raw.areas = [];
+    raw.dismounts = [{ x: 0, y: 350, w: 240, h: 150 }];
+    expect(() => validateLevel(raw, 'x.json')).toThrow(/dismounts/);
   });
 
   it('areas kürzer als stations wirft mit Pfad', () => {

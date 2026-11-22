@@ -49,7 +49,8 @@ export class Hud {
       this.giftCount.textContent = count;
     }
     const area = lv.areas[sim.activeArea];
-    this.inkWrap.classList.toggle('hidden', sim.mode !== 'sled');
+    this.inkWrap.classList.toggle('hidden', sim.mode !== 'sled' || !area);
+    if (!area) return; // reines Jump'n'Run: keine Tinte
     setBar(this.inkBar, sim.ink.remaining(sim.activeArea, false), area.ink);
     setBar(this.boostBar, sim.ink.remaining(sim.activeArea, true), area.boost);
     this.boostBar.parentElement!.parentElement!.classList.toggle('hidden', area.boost === 0);
